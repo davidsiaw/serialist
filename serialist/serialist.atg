@@ -1,0 +1,79 @@
+#include <vector>
+#include <sstream>
+#include "DataStructures.h"
+
+COMPILER Serialist
+
+std::vector<FormatDesc> formats;
+
+/*--------------------------------------------------------------------------*/
+CHARACTERS
+  letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  digit = "0123456789".
+  underscore = "_".
+  cr  = '\r'.
+  lf  = '\n'.
+  tab = '\t'.
+
+TOKENS
+  ident = letter {letter | digit | underscore}.
+  number = digit {digit}.
+
+COMMENTS FROM "/*" TO "*/" NESTED
+COMMENTS FROM "//" TO cr lf
+
+IGNORE cr + lf + tab
+
+PRODUCTIONS
+
+Name<std::wstring &name> = 
+	ident							(. name = std::wstring(t->val); .)
+.
+
+Type<std::wstring &tname> =
+	ident							(. tname = std::wstring(t->val); .)
+.
+
+Number<unsigned int& num> =
+	number							(. std::wistringstream(t->val) >> num; .)
+.
+
+ArraySize<AttrPtr &attr> =			(. unsigned int num; .)
+									(. std::wstring name; .)
+	"["
+	(
+		Number<num>					(. attr = ArrSizePtr(new ArraySizeAttribute(num)); .)
+		| Name<name>				(. attr = ArrSizeRefPtr(new ArraySizeReferenceAttribute(name)); .)
+	)
+	"]"
+.
+
+Member<FormatMember &member> =		(. std::wstring tname, name; .)
+									(. AttrPtr attr; .)
+									(. std::vector<AttrPtr> attrs; .)
+	Type<tname>
+	[
+		ArraySize<attr>				(. attrs.push_back(attr); .)
+	]
+	Name<name>
+									(. member = FormatMember(name, tname, attrs); .)
+.
+
+Format<FormatDesc& format> =		(. FormatMember member; .)
+									(. std::wstring tname; .)
+	"format"
+	Type<tname>						(. format = FormatDesc(tname); .)
+	"{"
+	{
+		Member<member>				(. format.Add(member); .)
+	}
+	"}"
+.
+
+Serialist =							(. FormatDesc format; .)
+	{
+		Format<format>				(. formats.push_back(format); .)
+	}
+.
+
+END Serialist.
