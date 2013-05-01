@@ -1,0 +1,7 @@
+language: cpp
+compiler:
+  - gcc
+  - clang
+  
+#TODO need to add tests
+script: ./configure && make
