@@ -97,7 +97,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="serialist.atg" />
-    <None Include="test.txt">
+    <None Include="test.format">
       <DeploymentContent>true</DeploymentContent>
     </None>
   </ItemGroup>

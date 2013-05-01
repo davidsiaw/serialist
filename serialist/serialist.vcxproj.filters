@@ -61,7 +61,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.txt" />
     <None Include="serialist.atg" />
+    <None Include="test.format" />
   </ItemGroup>
 </Project>
