@@ -63,14 +63,14 @@ class FormatMember
 {
 	std::wstring name;
 	std::wstring tname;
-	std::vector<boost::shared_ptr<Attribute>> attrs;
+	std::vector<boost::shared_ptr<Attribute> > attrs;
 
 public:
 	FormatMember()
 	{
 	}
 
-	FormatMember(std::wstring name, std::wstring tname, std::vector<boost::shared_ptr<Attribute>> attrs) : 
+	FormatMember(std::wstring name, std::wstring tname, std::vector<boost::shared_ptr<Attribute> > attrs) : 
 	name(name), tname(tname), attrs(attrs)
 	{
 	}
