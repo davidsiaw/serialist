@@ -14,12 +14,14 @@ documentation
 =============
 
 how to build
+------------
 
 To build serialist you can either 
 - use serialist.sln in MSVC 
 - or with Cygwin/Linux/Mac use ./configure && make
 
 how to use
+----------
 
 Serialist is a commandline tool that generates C code to read/write binary files.
 You need a file format description and a program that uses it.
