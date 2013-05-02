@@ -11,9 +11,9 @@ public:
 	{
 	}
 
-	void Generate(std::vector<FormatDesc> format, std::wostream& output)
+	void Generate(std::wstring name, std::vector<FormatDesc> format, std::wostream& output)
 	{
-		TScheme sch;
+		TScheme sch(name);
 		sch.GenerateHeader(output);
 
 		BOOST_FOREACH(FormatDesc fmt, format)

@@ -9,6 +9,7 @@
 enum OutputType
 {
 	Unknown,
+	PrintName,
 	CHeader,
 	CSource
 };
@@ -20,6 +21,15 @@ bool hasEnding (std::wstring const &fullString, std::wstring const &ending)
     } else {
         return false;
     }
+}
+
+std::wstring getNameWithoutExtension(std::wstring path)
+{
+	int firstindex = path.find_last_of(L"/\\");
+	int lastindex = path.rfind(L".format");
+	firstindex = firstindex == -1 ? 0 : firstindex + 1;
+	lastindex = firstindex == -1 ? path.size() : lastindex;
+	return path.substr(firstindex, lastindex - firstindex);
 }
 
 int main(int argc, char** argv)
@@ -41,6 +51,10 @@ int main(int argc, char** argv)
 		{
 			type = CSource;
 		}
+		else if (argv[1][0] == 'n')
+		{
+			type = PrintName;
+		}
 	}
 
 	if (wrongUsage)
@@ -60,19 +74,26 @@ int main(int argc, char** argv)
 	Scanner s(str.str().c_str());
 	Parser p(&s);
 	p.Parse();
+	
+	std::wstring name = getNameWithoutExtension(str.str());
 
 	switch(type)
 	{
 	case CHeader:
 		{
 			Generator<CHeaderBackend> headergen;
-			headergen.Generate(p.formats, std::wcout);
+			headergen.Generate(name, p.formats, std::wcout);
 		}
 		break;
 	case CSource:
 		{
 			Generator<CSourceBackend> sourcegen;
-			sourcegen.Generate(p.formats, std::wcout);
+			sourcegen.Generate(name, p.formats, std::wcout);
+		}
+		break;
+	case PrintName:
+		{
+			std::wcout << name << std::endl;
 		}
 		break;
 	default:

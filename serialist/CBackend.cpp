@@ -1,5 +1,7 @@
 #include "CBackend.h"
 
+#include <boost/algorithm/string.hpp>
+
 struct KnownTypes
 {
 	const wchar_t* name;
@@ -64,8 +66,27 @@ std::wstring MakeSignatureForDeleteFunction(const std::wstring& verb, const std:
 	return str.str();
 }
 
+CHeaderBackend::CHeaderBackend(std::wstring name)
+{
+	this->name = name;
+}
+
+bool IsAlphaNum(wchar_t c)
+{
+	return !isalnum(c);
+}
+
+std::wstring Headerize(std::wstring name)
+{
+	std::replace_if(name.begin(), name.end(), IsAlphaNum, L'_');
+	boost::to_upper(name);
+	return name + L"_H";
+}
+
 void CHeaderBackend::GenerateHeader(std::wostream& output)
 {
+	output << "#ifndef " << Headerize(name) << std::endl;
+	output << "#define " << Headerize(name) << std::endl;
 	output << "#ifdef __cplusplus" << std::endl << "extern \"C\" {" << std::endl << "#endif // __cplusplus" << std::endl;
 }
 
@@ -73,6 +94,7 @@ void CHeaderBackend::GenerateFooter(std::wostream& output)
 {
 	output << prototypes.str();
 	output << "#ifdef __cplusplus" << std::endl << "}" << std::endl << "#endif // __cplusplus" << std::endl;
+	output << "#endif // " << Headerize(name) << std::endl;
 }
 
 void CHeaderBackend::GenerateStructOpening(const std::wstring& name, std::wostream& output)
@@ -120,10 +142,15 @@ void CHeaderBackend::GenerateMemberEnding(const std::wstring& tname, const std::
 }
 
 
+CSourceBackend::CSourceBackend(std::wstring name)
+{
+	this->name = name;
+}
 
 void CSourceBackend::GenerateHeader(std::wostream& output)
 {
-	output << "#include<stdlib.h>" << std::endl;
+	output << "#include <stdlib.h>" << std::endl;
+	output << "#include \"" << name << ".h" << "\"" << std::endl;
 }
 
 void CSourceBackend::GenerateFooter(std::wostream& output)

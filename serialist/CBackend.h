@@ -10,8 +10,10 @@ class CHeaderBackend
 	std::wstring arraysuffix;
 	std::wstring arrayprefix;
 	std::wstringstream prototypes;
+	std::wstring name;
 
 public:
+	CHeaderBackend(std::wstring name);
 	void GenerateHeader(std::wostream& output);
 	void GenerateFooter(std::wostream& output);
 	void GenerateStructOpening(const std::wstring& name, std::wostream& output);
@@ -26,12 +28,14 @@ class CSourceBackend
 {
 	std::wstring arraysuffix;
 	std::wstring arraydestroyer;
+	std::wstring name;
 
 	std::wstringstream readFunctions;
 	std::wstringstream writeFunctions;
 	std::wstringstream destroyFunctions;
 
 public:
+	CSourceBackend(std::wstring name);
 	void GenerateHeader(std::wostream& output);
 	void GenerateFooter(std::wostream& output);
 	void GenerateStructOpening(const std::wstring& name, std::wostream& output);
