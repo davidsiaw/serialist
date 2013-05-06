@@ -14,7 +14,7 @@ how to build
 
 To build serialist you can either 
 - use serialist.sln in MSVC 
-- or with Cygwin/Linux/Mac use ./configure && make
+- or with Cygwin/Linux/Mac use autoreconf --install && ./configure && make
 
 how to use
 ----------
@@ -64,7 +64,7 @@ included files
 
 - serialist.sln - for MSVC 2010
 - serialist.workspace - for Notepad++
-- configure script - for building with Cygwin, Linux or OS X
+- autoconf scripts - for building with Cygwin, Linux or OS X
 
 ----------
 motivation
