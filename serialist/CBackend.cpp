@@ -87,6 +87,8 @@ void CHeaderBackend::GenerateHeader(std::wostream& output)
 {
 	output << "#ifndef " << Headerize(name) << std::endl;
 	output << "#define " << Headerize(name) << std::endl;
+	output << "#include <stdio.h>" << std::endl;
+	output << "#include <stdlib.h>" << std::endl;
 	output << "#ifdef __cplusplus" << std::endl << "extern \"C\" {" << std::endl << "#endif // __cplusplus" << std::endl;
 }
 
@@ -103,7 +105,7 @@ void CHeaderBackend::GenerateStructOpening(const std::wstring& name, std::wostre
 	
 	prototypes << MakeSignatureForCreatorFunction(L"read", name) << ";" << std::endl;
 	prototypes << MakeSignatureForUserFunction(L"write", name) << ";" << std::endl;
-	prototypes << MakeSignatureForDeleteFunction(L"delete", name) << ";" << std::endl;
+	prototypes << MakeSignatureForDeleteFunction(L"destroy", name) << ";" << std::endl;
 }
 
 void CHeaderBackend::GenerateStructEnding(const std::wstring& name, std::wostream& output)
@@ -163,12 +165,12 @@ void CSourceBackend::GenerateStructOpening(const std::wstring& name, std::wostre
 {
 	output << std::endl << MakeSignatureForCreatorFunction(L"read", name) << std::endl 
 		<< "{" << std::endl
-		<< "\t" << name << "* structure = malloc(sizeof(" << name << "));" << std::endl;
+		<< "\t" << name << "* structure = (" << name << "*)malloc(sizeof(" << name << "));" << std::endl;
 	
 	writeFunctions << std::endl << MakeSignatureForUserFunction(L"write", name) << std::endl 
 		<< "{" << std::endl;
 
-	destroyFunctions << std::endl << MakeSignatureForDeleteFunction(L"delete", name) << std::endl 
+	destroyFunctions << std::endl << MakeSignatureForDeleteFunction(L"destroy", name) << std::endl 
 		<< "{" << std::endl;
 
 }
@@ -205,11 +207,11 @@ void CSourceBackend::SetMemberArraySizeReference(const std::wstring& tname, cons
 
 	if (IsKnownType(tname))
 	{
-		output << "\tstructure->" << name << " = calloc(" << "structure->" << reference << ", " << "sizeof(" << ConvertKnownType(tname) << ")" << ");" << std::endl;
+		output << "\tstructure->" << name << " = (" << ConvertKnownType(tname) << "*)calloc(" << "structure->" << reference << ", " << "sizeof(" << ConvertKnownType(tname) << ")" << ");" << std::endl;
 	}
 	else
 	{
-		output << "\tstructure->" << name << " = calloc(" << "structure->" << reference << ", " << "sizeof(" << ConvertKnownType(tname) << "*)" << ");" << std::endl;
+		output << "\tstructure->" << name << " = (" << ConvertKnownType(tname) << "**)calloc(" << "structure->" << reference << ", " << "sizeof(" << ConvertKnownType(tname) << "*)" << ");" << std::endl;
 	}
 
 	std::wstringstream destroyer;
