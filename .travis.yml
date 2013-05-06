@@ -3,7 +3,8 @@ compiler:
   - gcc
 
 before_install:
-  - sudo apt-get install libboost-dev autoconf automake libtool autotools-dev
+  - sudo apt-get install autotools-dev libboost-dev
+  - sudo apt-get install autoconf automake libtool
 
 #TODO need to add tests
 script: ./configure && make && make check
