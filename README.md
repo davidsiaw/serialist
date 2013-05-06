@@ -111,5 +111,6 @@ TODO
 - support defining magic numbers so serialist can automatically verify them
 - support other languages/extend to allow drivers for different languages externally
 - support lazy reading/modifying methods
+- support sanity checking/specify ranges/valid values
 - collect file format descriptions
 - describe formats spanning multiple files
