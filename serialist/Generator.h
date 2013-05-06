@@ -24,7 +24,7 @@ public:
 			{
 				sch.GenerateMemberOpening(member.GetTypeName(), member.GetName(), output);
 
-				member.ForEachAttribute([&](boost::shared_ptr<Attribute> attr)
+				member.ForEachAttribute([&](std::tr1::shared_ptr<Attribute> attr)
 				{
 					if (attr->getAttributeType().compare(ARRAY_SIZE_ATTRIBUTE) == 0)
 					{
