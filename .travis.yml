@@ -3,8 +3,7 @@ compiler:
   - gcc
 
 before_install:
-  - sudo apt-get install libboost-dev autoconf automake libtool aclocalo
-
+  - sudo apt-get install libboost-dev autoconf automake libtool aclocal
 
 #TODO need to add tests
 script: ./configure && make && make check
