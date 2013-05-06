@@ -6,4 +6,4 @@ before_install:
   - sudo apt-get install libboost-dev
 
 #TODO need to add tests
-script: ./configure && make
+script: ./configure && make && make check
