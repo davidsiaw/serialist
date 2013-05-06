@@ -2,6 +2,7 @@ serialist
 =========
 
 Program to generate C/C++ code for reading binary files described with a simple file format description language.
+
 [![Build Status](https://travis-ci.org/davidsiaw/serialist.png)](https://travis-ci.org/davidsiaw/serialist)
 
 -----------------------
@@ -13,7 +14,7 @@ how to build
 
 To build serialist you can either 
 - use serialist.sln in MSVC 
-- or with Cygwin/Linux/Mac use ./configure && make
+- or with Cygwin/Linux/Mac use autoreconf --install && ./configure && make
 
 how to use
 ----------
@@ -63,7 +64,7 @@ included files
 
 - serialist.sln - for MSVC 2010
 - serialist.workspace - for Notepad++
-- configure script - for building with Cygwin, Linux or OS X
+- autoconf scripts - for building with Cygwin, Linux or OS X
 
 ----------
 motivation
@@ -110,5 +111,6 @@ TODO
 - support defining magic numbers so serialist can automatically verify them
 - support other languages/extend to allow drivers for different languages externally
 - support lazy reading/modifying methods
+- support sanity checking/specify ranges/valid values
 - collect file format descriptions
 - describe formats spanning multiple files
