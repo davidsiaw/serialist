@@ -2,6 +2,7 @@ serialist
 =========
 
 Program to generate C/C++ code for reading binary files described with a simple file format description language.
+
 [![Build Status](https://travis-ci.org/davidsiaw/serialist.png)](https://travis-ci.org/davidsiaw/serialist)
 
 -----------------------
