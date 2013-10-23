@@ -4,11 +4,12 @@
 #include <string>
 #include <vector>
 #include <boost/foreach.hpp>
-#include <tr1/functional>
-#include <tr1/memory>
+#include <boost/tr1/functional.hpp>
+#include <boost/tr1/memory.hpp>
 
 extern std::string ARRAY_SIZE_ATTRIBUTE;
 extern std::string ARRAY_SIZE_REF_ATTRIBUTE;
+extern std::string NULL_TERMINATED_ATTRIBUTE;
 
 class Attribute
 {
@@ -58,6 +59,14 @@ public:
 	}
 };
 
+class NullTerminatedAttribute : public Attribute
+{
+public:
+	virtual std::string getAttributeType() const
+	{
+		return NULL_TERMINATED_ATTRIBUTE;
+	}
+};
 
 class FormatMember
 {
@@ -133,5 +142,6 @@ public:
 typedef std::tr1::shared_ptr<Attribute> AttrPtr;
 typedef std::tr1::shared_ptr<ArraySizeAttribute> ArrSizePtr;
 typedef std::tr1::shared_ptr<ArraySizeReferenceAttribute> ArrSizeRefPtr;
+typedef std::tr1::shared_ptr<NullTerminatedAttribute> NullTermPtr;
 
 #endif // DATASTRUCTURES_H

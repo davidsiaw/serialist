@@ -42,6 +42,13 @@ public:
 							((ArraySizeReferenceAttribute*)attr.get())->GetSizeRef(),
 							output);
 					}
+					else if (attr->getAttributeType().compare(NULL_TERMINATED_ATTRIBUTE) == 0)
+					{
+						sch.SetMemberArrayNullTerminator(
+							member.GetTypeName(), 
+							member.GetName(), 
+							output);
+					}
 					else
 					{
 

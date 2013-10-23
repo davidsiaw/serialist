@@ -62,6 +62,5 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="serialist.atg" />
-    <None Include="test.format" />
   </ItemGroup>
 </Project>

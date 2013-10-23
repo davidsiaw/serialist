@@ -11,4 +11,5 @@ format someNums
 	otherNums[10] moreOthers2
 	uint32[size] somemorenums
 	uint32[10] somenums
+	uint8[#0] x
 }

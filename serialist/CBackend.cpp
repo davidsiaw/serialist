@@ -131,6 +131,11 @@ void CHeaderBackend::SetMemberArraySizeReference(const std::wstring& tname, cons
 	arrayprefix = L"*";
 }
 
+void CHeaderBackend::SetMemberArrayNullTerminator(const std::wstring& tname, const std::wstring& name, std::wostream& output)
+{
+	arrayprefix = L"*";
+}
+
 void CHeaderBackend::GenerateMemberEnding(const std::wstring& tname, const std::wstring& name, std::wostream& output)
 {
 	if (IsKnownType(tname))
@@ -219,13 +224,55 @@ void CSourceBackend::SetMemberArraySizeReference(const std::wstring& tname, cons
 	arraydestroyer = destroyer.str();
 }
 
+class NullTerminatorCannotBeUsedWithCustomType {};
+
+void CSourceBackend::SetMemberArrayNullTerminator(const std::wstring& tname, const std::wstring& name, std::wostream& output)
+{
+	arraysuffix = L"#";
+	if (IsKnownType(tname))
+	{
+	}
+	else
+	{
+		throw NullTerminatorCannotBeUsedWithCustomType();
+	}
+}
+
 void CSourceBackend::GenerateMemberEnding(const std::wstring& tname, const std::wstring& name, std::wostream& output)
 {
 	if (IsKnownType(tname))
 	{
-		output << "\tfread(&structure->" << name << ", sizeof(" << ConvertKnownType(tname) << "), " << arraysuffix << ", fp);" << std::endl;
+		
+		if (arraysuffix == L"#")
+		{
+			output << "\tfor (size_t i=0;;i++)" << std::endl << "\t{" << std::endl;
+			output << "\t\t" << ConvertKnownType(tname) << " temp;" << std::endl;
 
-		writeFunctions << "\tfwrite(&structure->" << name << ", sizeof(" << ConvertKnownType(tname) << "), " << arraysuffix << ", fp);" << std::endl;
+			output << "\t\tfread(&temp, sizeof(" << ConvertKnownType(tname) << "), 1, fp);" << std::endl;
+			output << "\t\t" << "if (temp == 0)" << std::endl << "\t\t{" << std::endl;
+			
+			output << "\t\t\tstructure->" << name << " = (" << ConvertKnownType(tname) << "*)calloc(i+1, " << "sizeof(" << ConvertKnownType(tname) << ")" << ");" << std::endl;
+			output << "\t\t\tfseek(fp, -i, SEEK_CUR);" << std::endl;
+			output << "\t\t\tfread(&structure->" << name << ", sizeof(" << ConvertKnownType(tname) << "), i, fp);" << std::endl;
+
+			output << "\t\t\t" << "break;" << std::endl;
+
+			output << "\t\t}" << std::endl;
+			output << "\t}" << std::endl;
+
+			
+			writeFunctions << "\tfor (size_t i=0;;i++)" << std::endl << "\t{" << std::endl << "\t";
+			writeFunctions << "\tfwrite(&structure->" << name << "[i]" << ", sizeof(" << ConvertKnownType(tname) << "), 1, fp);" << std::endl;
+			writeFunctions << "\t\tif(&structure->" << name << "[i] == 0) { break; }" << std::endl;
+			writeFunctions << "\t}" << std::endl;
+
+		}
+		else 
+		{
+			output << "\tfread(&structure->" << name << ", sizeof(" << ConvertKnownType(tname) << "), " << arraysuffix << ", fp);" << std::endl;
+
+			writeFunctions << "\tfwrite(&structure->" << name << ", sizeof(" << ConvertKnownType(tname) << "), " << arraysuffix << ", fp);" << std::endl;
+		}
 	}
 	else
 	{

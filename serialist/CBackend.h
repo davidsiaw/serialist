@@ -21,6 +21,7 @@ public:
 	void GenerateMemberOpening(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 	void SetMemberArraySize(const std::wstring& tname, const std::wstring& name, unsigned int size, std::wostream& output);
 	void SetMemberArraySizeReference(const std::wstring& tname, const std::wstring& name, const std::wstring& reference, std::wostream& output);
+	void SetMemberArrayNullTerminator(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 	void GenerateMemberEnding(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 };
 
@@ -43,6 +44,7 @@ public:
 	void GenerateMemberOpening(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 	void SetMemberArraySize(const std::wstring& tname, const std::wstring& name, unsigned int size, std::wostream& output);
 	void SetMemberArraySizeReference(const std::wstring& tname, const std::wstring& name, const std::wstring& reference, std::wostream& output);
+	void SetMemberArrayNullTerminator(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 	void GenerateMemberEnding(const std::wstring& tname, const std::wstring& name, std::wostream& output);
 };
 

@@ -91,6 +91,7 @@ std::vector<FormatDesc> formats;
 	void Name(std::wstring &name);
 	void Type(std::wstring &tname);
 	void Number(unsigned int& num);
+	void NullTerminate();
 	void ArraySize(AttrPtr &attr);
 	void Member(FormatMember &member);
 	void Format(FormatDesc& format);

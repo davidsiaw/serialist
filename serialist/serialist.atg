@@ -38,12 +38,17 @@ Number<unsigned int& num> =
 	number							(. std::wistringstream(t->val) >> num; .)
 .
 
+NullTerminate =
+	"#0"
+.
+
 ArraySize<AttrPtr &attr> =			(. unsigned int num; .)
 									(. std::wstring name; .)
 	"["
 	(
 		Number<num>					(. attr = ArrSizePtr(new ArraySizeAttribute(num)); .)
 		| Name<name>				(. attr = ArrSizeRefPtr(new ArraySizeReferenceAttribute(name)); .)
+		| NullTerminate				(. attr = NullTermPtr(new NullTerminatedAttribute()); .)
 	)
 	"]"
 .

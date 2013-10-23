@@ -103,18 +103,25 @@ void Parser::Number(unsigned int& num) {
 		std::wistringstream(t->val) >> num; 
 }
 
+void Parser::NullTerminate() {
+		Expect(3 /* "#0" */);
+}
+
 void Parser::ArraySize(AttrPtr &attr) {
 		unsigned int num; 
 		std::wstring name; 
-		Expect(3 /* "[" */);
+		Expect(4 /* "[" */);
 		if (la->kind == _number) {
 			Number(num);
 			attr = ArrSizePtr(new ArraySizeAttribute(num)); 
 		} else if (la->kind == _ident) {
 			Name(name);
 			attr = ArrSizeRefPtr(new ArraySizeReferenceAttribute(name)); 
-		} else SynErr(9);
-		Expect(4 /* "]" */);
+		} else if (la->kind == 3 /* "#0" */) {
+			NullTerminate();
+			attr = NullTermPtr(new NullTerminatedAttribute()); 
+		} else SynErr(10);
+		Expect(5 /* "]" */);
 }
 
 void Parser::Member(FormatMember &member) {
@@ -122,7 +129,7 @@ void Parser::Member(FormatMember &member) {
 		AttrPtr attr; 
 		std::vector<AttrPtr> attrs; 
 		Type(tname);
-		if (la->kind == 3 /* "[" */) {
+		if (la->kind == 4 /* "[" */) {
 			ArraySize(attr);
 			attrs.push_back(attr); 
 		}
@@ -133,20 +140,20 @@ void Parser::Member(FormatMember &member) {
 void Parser::Format(FormatDesc& format) {
 		FormatMember member; 
 		std::wstring tname; 
-		Expect(5 /* "format" */);
+		Expect(6 /* "format" */);
 		Type(tname);
 		format = FormatDesc(tname); 
-		Expect(6 /* "{" */);
+		Expect(7 /* "{" */);
 		while (la->kind == _ident) {
 			Member(member);
 			format.Add(member); 
 		}
-		Expect(7 /* "}" */);
+		Expect(8 /* "}" */);
 }
 
 void Parser::Serialist() {
 		FormatDesc format; 
-		while (la->kind == 5 /* "format" */) {
+		while (la->kind == 6 /* "format" */) {
 			Format(format);
 			formats.push_back(format); 
 		}
@@ -253,7 +260,7 @@ void Parser::Parse() {
 }
 
 Parser::Parser(Scanner *scanner) {
-	maxT = 8;
+	maxT = 9;
 
 	ParserInitCaller<Parser>::CallInit(this);
 	dummyToken = NULL;
@@ -268,8 +275,8 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[1][10] = {
-		{T,x,x,x, x,x,x,x, x,x}
+	static bool set[1][11] = {
+		{T,x,x,x, x,x,x,x, x,x,x}
 	};
 
 
@@ -293,13 +300,14 @@ void Errors::SynErr(int line, int col, int n) {
 			case 0: s = coco_string_create(L"EOF expected"); break;
 			case 1: s = coco_string_create(L"ident expected"); break;
 			case 2: s = coco_string_create(L"number expected"); break;
-			case 3: s = coco_string_create(L"\"[\" expected"); break;
-			case 4: s = coco_string_create(L"\"]\" expected"); break;
-			case 5: s = coco_string_create(L"\"format\" expected"); break;
-			case 6: s = coco_string_create(L"\"{\" expected"); break;
-			case 7: s = coco_string_create(L"\"}\" expected"); break;
-			case 8: s = coco_string_create(L"??? expected"); break;
-			case 9: s = coco_string_create(L"invalid ArraySize"); break;
+			case 3: s = coco_string_create(L"\"#0\" expected"); break;
+			case 4: s = coco_string_create(L"\"[\" expected"); break;
+			case 5: s = coco_string_create(L"\"]\" expected"); break;
+			case 6: s = coco_string_create(L"\"format\" expected"); break;
+			case 7: s = coco_string_create(L"\"{\" expected"); break;
+			case 8: s = coco_string_create(L"\"}\" expected"); break;
+			case 9: s = coco_string_create(L"??? expected"); break;
+			case 10: s = coco_string_create(L"invalid ArraySize"); break;
 
 		default:
 		{

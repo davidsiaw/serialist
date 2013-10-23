@@ -448,18 +448,19 @@ Scanner::~Scanner() {
 void Scanner::Init() {
 	EOL    = '\n';
 	eofSym = 0;
-	maxT = 8;
-	noSym = 8;
+	maxT = 9;
+	noSym = 9;
 	int i;
 	for (i = 65; i <= 90; ++i) start.set(i, 1);
 	for (i = 97; i <= 122; ++i) start.set(i, 1);
 	for (i = 48; i <= 57; ++i) start.set(i, 2);
-	start.set(91, 3);
-	start.set(93, 4);
-	start.set(123, 5);
-	start.set(125, 6);
+	start.set(35, 3);
+	start.set(91, 5);
+	start.set(93, 6);
+	start.set(123, 7);
+	start.set(125, 8);
 		start.set(Buffer::EoF, -1);
-	keywords.set(L"format", 5);
+	keywords.set(L"format", 6);
 
 
 	tvalLength = 128;
@@ -655,13 +656,19 @@ Token* Scanner::NextToken() {
 			if ((ch >= L'0' && ch <= L'9')) {AddCh(); goto case_2;}
 			else {t->kind = 2; break;}
 		case 3:
-			{t->kind = 3; break;}
+			if (ch == L'0') {AddCh(); goto case_4;}
+			else {goto case_0;}
 		case 4:
-			{t->kind = 4; break;}
+			case_4:
+			{t->kind = 3; break;}
 		case 5:
-			{t->kind = 6; break;}
+			{t->kind = 4; break;}
 		case 6:
+			{t->kind = 5; break;}
+		case 7:
 			{t->kind = 7; break;}
+		case 8:
+			{t->kind = 8; break;}
 
 	}
 	AppendVal(t);
