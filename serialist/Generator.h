@@ -16,7 +16,7 @@ public:
 		TScheme sch(name);
 		sch.GenerateHeader(output);
 
-		BOOST_FOREACH(FormatDesc fmt, format)
+		for_each(format.begin(), format.end(), [&](FormatDesc fmt)
 		{
 			sch.GenerateStructOpening(fmt.GetName(), output);
 
@@ -24,7 +24,7 @@ public:
 			{
 				sch.GenerateMemberOpening(member.GetTypeName(), member.GetName(), output);
 
-				member.ForEachAttribute([&](std::tr1::shared_ptr<Attribute> attr)
+				member.ForEachAttribute([&](std::shared_ptr<Attribute> attr)
 				{
 					if (attr->getAttributeType().compare(ARRAY_SIZE_ATTRIBUTE) == 0)
 					{
@@ -59,7 +59,7 @@ public:
 			});
 
 			sch.GenerateStructEnding(fmt.GetName(), output);
-		}
+		});
 		
 		sch.GenerateFooter(output);
 	}

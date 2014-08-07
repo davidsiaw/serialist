@@ -3,9 +3,9 @@
 
 #include <string>
 #include <vector>
-#include <boost/foreach.hpp>
-#include <boost/tr1/functional.hpp>
-#include <boost/tr1/memory.hpp>
+#include <algorithm>
+#include <functional>
+#include <memory>
 
 extern std::string ARRAY_SIZE_ATTRIBUTE;
 extern std::string ARRAY_SIZE_REF_ATTRIBUTE;
@@ -72,7 +72,7 @@ class FormatMember
 {
 	std::wstring name;
 	std::wstring tname;
-	std::vector< std::tr1::shared_ptr<Attribute> > attrs;
+	std::vector< std::shared_ptr<Attribute> > attrs;
 
 public:
 	FormatMember()
@@ -81,7 +81,7 @@ public:
 
 	FormatMember(std::wstring name, 
 		std::wstring tname, 
-		std::vector< std::tr1::shared_ptr<Attribute> > attrs) : 
+		std::vector< std::shared_ptr<Attribute> > attrs) : 
 	name(name), tname(tname), attrs(attrs)
 	{
 	}
@@ -96,12 +96,12 @@ public:
 		return tname;
 	}
 
-	void ForEachAttribute(std::tr1::function<void(std::tr1::shared_ptr<Attribute>)> func) const
+	void ForEachAttribute(std::function<void(std::shared_ptr<Attribute>)> func) const
 	{
-		BOOST_FOREACH(std::tr1::shared_ptr<Attribute> attr, attrs)
+		for_each(attrs.begin(), attrs.end(), [&](std::shared_ptr<Attribute> attr)
 		{
 			func(attr);
-		}
+		});
 	}
 };
 
@@ -130,7 +130,7 @@ public:
 		return name;
 	}
 
-	void ForeachMember(std::tr1::function<void(FormatMember&)> action)
+	void ForeachMember(std::function<void(FormatMember&)> action)
 	{
 		for (size_t i=0; i<members.size(); i++)
 		{
@@ -139,9 +139,9 @@ public:
 	}
 };
 
-typedef std::tr1::shared_ptr<Attribute> AttrPtr;
-typedef std::tr1::shared_ptr<ArraySizeAttribute> ArrSizePtr;
-typedef std::tr1::shared_ptr<ArraySizeReferenceAttribute> ArrSizeRefPtr;
-typedef std::tr1::shared_ptr<NullTerminatedAttribute> NullTermPtr;
+typedef std::shared_ptr<Attribute> AttrPtr;
+typedef std::shared_ptr<ArraySizeAttribute> ArrSizePtr;
+typedef std::shared_ptr<ArraySizeReferenceAttribute> ArrSizeRefPtr;
+typedef std::shared_ptr<NullTerminatedAttribute> NullTermPtr;
 
 #endif // DATASTRUCTURES_H

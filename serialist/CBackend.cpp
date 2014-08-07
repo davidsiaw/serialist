@@ -1,7 +1,5 @@
 #include "CBackend.h"
 
-#include <boost/algorithm/string.hpp>
-
 struct KnownTypes
 {
 	const wchar_t* name;
@@ -79,7 +77,7 @@ bool IsAlphaNum(wchar_t c)
 std::wstring Headerize(std::wstring name)
 {
 	std::replace_if(name.begin(), name.end(), IsAlphaNum, L'_');
-	boost::to_upper(name);
+	std::transform(name.begin(), name.end(), name.begin(), ::towupper);
 	return name + L"_H";
 }
 

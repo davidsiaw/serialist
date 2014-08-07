@@ -3,4 +3,4 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <boost/foreach.hpp>
+#include <algorithm>
