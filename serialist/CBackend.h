@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <locale>
+#include <algorithm>
 
 class CHeaderBackend
 {
