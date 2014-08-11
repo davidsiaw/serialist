@@ -102,15 +102,3 @@ language simple enough for humans to read, yet formal enough to be used by softw
 binary file properly, and be used as a method to share information about file formats.
 
 Once finalized I will extend this format definition to allow formats spanning multiple files.
-
-----
-TODO
-====
-
-- support offsets
-- support defining magic numbers so serialist can automatically verify them
-- support other languages/extend to allow drivers for different languages externally
-- support lazy reading/modifying methods
-- support sanity checking/specify ranges/valid values
-- collect file format descriptions
-- describe formats spanning multiple files
