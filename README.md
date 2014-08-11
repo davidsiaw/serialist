@@ -5,6 +5,9 @@ Program to generate C/C++ code for reading binary files described with a simple 
 
 [![Build Status](https://travis-ci.org/davidsiaw/serialist.svg)](https://travis-ci.org/davidsiaw/serialist)
 [![Stories in Ready](https://badge.waffle.io/davidsiaw/serialist.svg?label=ready&title=Ready)](http://waffle.io/davidsiaw/serialist)
+[![License](http://img.shields.io/badge/license-GPLv3-red.svg)](https://github.com/davidsiaw/serialist/blob/master/LICENSE)
+
+
 
 -----------------------
 a little documentation
