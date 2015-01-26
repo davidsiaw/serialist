@@ -1,6 +1,8 @@
 serialist
 =========
 
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/davidsiaw/serialist?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Program to generate C/C++ code for reading binary files described with a simple file format description language.
 
 [![Build Status](https://travis-ci.org/davidsiaw/serialist.svg)](https://travis-ci.org/davidsiaw/serialist)
