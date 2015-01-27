@@ -1,14 +1,22 @@
-#include <vector>
+#include <map>
 #include <sstream>
+#include <iostream>
 #include "DataStructures.h"
+
+class DuplicateFormatNameException {
+public:
+	std::wstring name;
+	DuplicateFormatNameException(std::wstring name) : name(name) {}
+};
 
 COMPILER Serialist
 
-std::vector<FormatDesc> formats;
+std::map<std::wstring, FormatDesc> formats;
 
 /*--------------------------------------------------------------------------*/
 CHARACTERS
-  letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  bigletter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".
+  smallletter = "abcdefghijklmnopqrstuvwxyz".
   digit = "0123456789".
   underscore = "_".
   cr  = '\r'.
@@ -16,11 +24,12 @@ CHARACTERS
   tab = '\t'.
 
 TOKENS
-  ident = letter {letter | digit | underscore}.
+  ident = smallletter { bigletter | smallletter | digit | underscore }.
+  typeident = bigletter { bigletter | smallletter | digit | underscore }.
   number = digit {digit}.
 
 COMMENTS FROM "/*" TO "*/" NESTED
-COMMENTS FROM "//" TO cr lf
+COMMENTS FROM "//" TO lf
 
 IGNORE cr + lf + tab
 
@@ -30,8 +39,20 @@ Name<std::wstring &name> =
 	ident							(. name = std::wstring(t->val); .)
 .
 
-Type<std::wstring &tname> =
-	ident							(. tname = std::wstring(t->val); .)
+Type<std::wstring &tname, bool &basictype> =
+									(. basictype = true; .)
+	( "Uint8"
+	| "Uint16"
+	| "Uint32"
+	| "Uint64"
+	| "Int8"
+	| "Int16"
+	| "Int32"
+	| "Int64"
+	| "Float32"
+	| "Float64"
+	| typeident						(. basictype = false; .)
+	)								(. tname = std::wstring(t->val); .)
 .
 
 Number<unsigned int& num> =
@@ -54,20 +75,22 @@ ArraySize<AttrPtr &attr> =			(. unsigned int num; .)
 .
 
 Member<FormatMember &member> =		(. std::wstring tname, name; .)
+									(. bool basictype; .)
 									(. AttrPtr attr; .)
 									(. std::vector<AttrPtr> attrs; .)
-	Type<tname>
+	Type<tname, basictype>
 	[
 		ArraySize<attr>				(. attrs.push_back(attr); .)
 	]
 	Name<name>
-									(. member = FormatMember(name, tname, attrs); .)
+									(. member = FormatMember(name, tname, basictype, attrs); .)
 .
 
 Format<FormatDesc& format> =		(. FormatMember member; .)
+									(. bool basictype; .)
 									(. std::wstring tname; .)
 	"format"
-	Type<tname>						(. format = FormatDesc(tname); .)
+	Type<tname, basictype>			(. format = FormatDesc(tname, basictype); .)
 	"{"
 	{
 		Member<member>				(. format.Add(member); .)
@@ -77,7 +100,11 @@ Format<FormatDesc& format> =		(. FormatMember member; .)
 
 Serialist =							(. FormatDesc format; .)
 	{
-		Format<format>				(. formats.push_back(format); .)
+		Format<format>				(. if (formats.find(format.GetName()) != formats.end()) { 
+											throw DuplicateFormatNameException(format.GetName());
+										}
+										formats[format.GetName()] = format;
+									.)
 	}
 .
 

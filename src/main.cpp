@@ -3,8 +3,10 @@
 #include "Parser.h"
 #include "Scanner.h"
 #include "DataStructures.h"
-#include "CBackend.h"
-#include "Generator.h"
+
+// Backends
+#include "backends/CBackend.h"
+#include "backends/CPPBackend.h"
 
 enum OutputType
 {
@@ -73,22 +75,59 @@ int main(int argc, char** argv)
 
 	Scanner s(str.str().c_str());
 	Parser p(&s);
-	p.Parse();
+
+	try
+	{
+		p.Parse();
+
+	}
+	catch(DuplicateFormatNameException dfne)
+	{
+		std::wcerr << "Duplicate format name: " << dfne.name <<  std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(DuplicateMemberNameException dmne)
+	{
+		std::wcerr << "Duplicate member name: " << dmne.name <<  std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(FormatNameIsBasicTypeException fnibte)
+	{
+		std::wcerr << "Cannot use name: " << fnibte.name << " because it is a basic type" << std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(NullTermOnNonBasicTypeException ntonbte)
+	{
+		std::wcerr << "Null Termination only available on basic types: " << ntonbte.name <<  std::endl;
+		return EXIT_FAILURE;
+	}
+	catch(ReferencedMemberNotFoundException rmnfe)
+	{
+		std::wcerr << "A member: " << rmnfe.soughtMemberName << " could not be found in " << rmnfe.formatName << "::" << rmnfe.insideMemberName <<  std::endl;
+		return EXIT_FAILURE;
+	}
+
+	if (p.errors->count)
+	{
+		std::cerr << "Found " << p.errors->count << " errors. Unable to generate" << std::endl;
+		return EXIT_FAILURE;
+	}
 	
+	// Just the filename of the file
 	std::wstring name = getNameWithoutExtension(str.str());
 
 	switch(type)
 	{
 	case CHeader:
 		{
-			Generator<CHeaderBackend> headergen;
-			headergen.Generate(name, p.formats, std::wcout);
+			CBackend backend(name, p.formats);
+			backend.GenerateHeader();
 		}
 		break;
 	case CSource:
 		{
-			Generator<CSourceBackend> sourcegen;
-			sourcegen.Generate(name, p.formats, std::wcout);
+			CBackend backend(name, p.formats);
+			backend.GenerateSource();
 		}
 		break;
 	case PrintName:

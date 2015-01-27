@@ -1,0 +1,11 @@
+// Duplicate format definitions on purpose
+
+format Something
+{
+	Int32 magic
+}
+
+format Something
+{
+	Int32 magic2
+}

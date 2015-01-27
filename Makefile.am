@@ -1,2 +1,2 @@
 ACLOCAL_AMFLAGS = -I build-aux
-SUBDIRS = serialist tests
+SUBDIRS = src tests
