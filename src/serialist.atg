@@ -18,6 +18,7 @@ CHARACTERS
   bigletter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".
   smallletter = "abcdefghijklmnopqrstuvwxyz".
   digit = "0123456789".
+  naturals = "123456789".
   underscore = "_".
   cr  = '\r'.
   lf  = '\n'.
@@ -26,7 +27,8 @@ CHARACTERS
 TOKENS
   ident = smallletter { bigletter | smallletter | digit | underscore }.
   typeident = bigletter { bigletter | smallletter | digit | underscore }.
-  number = digit {digit}.
+  positiveint = naturals { digit }.
+
 
 COMMENTS FROM "/*" TO "*/" NESTED
 COMMENTS FROM "//" TO lf
@@ -55,8 +57,8 @@ Type<std::wstring &tname, bool &basictype> =
 	)								(. tname = std::wstring(t->val); .)
 .
 
-Number<unsigned int& num> =
-	number							(. std::wistringstream(t->val) >> num; .)
+PositiveInt<unsigned int& num> =
+	positiveint						(. std::wistringstream(t->val) >> num; .)
 .
 
 NullTerminate =
@@ -67,7 +69,7 @@ ArraySize<AttrPtr &attr> =			(. unsigned int num; .)
 									(. std::wstring name; .)
 	"["
 	(
-		Number<num>					(. attr = ArrSizePtr(new ArraySizeAttribute(num)); .)
+		PositiveInt<num>			(. attr = ArrSizePtr(new ArraySizeAttribute(num)); .)
 		| Name<name>				(. attr = ArrSizeRefPtr(new ArraySizeReferenceAttribute(name)); .)
 		| NullTerminate				(. attr = NullTermPtr(new NullTerminatedAttribute()); .)
 	)

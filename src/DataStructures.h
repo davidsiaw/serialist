@@ -160,7 +160,32 @@ public:
 				this->HasAttribute(NULL_TERMINATED_ATTRIBUTE);
 	}
 
-	AttrList GetAttributesFor (std::wstring attrname) const
+	bool HasMemberContainingArraySize() const
+	{
+		return this->HasAttribute(ARRAY_SIZE_REF_ATTRIBUTE);
+	}
+
+	std::wstring GetMemberContainingArraySize() const
+	{
+		if (!HasMemberContainingArraySize())
+		{
+			return L"";
+		}
+		return std::dynamic_pointer_cast<ArraySizeReferenceAttribute>(
+				this->GetAttributesFor(ARRAY_SIZE_REF_ATTRIBUTE)[0])->GetSizeRef();
+	}
+
+	unsigned int GetFixedArraySize() const
+	{
+		if (IsLengthOnlyKnownAtRuntime())
+		{
+			return -1;
+		}
+		return std::dynamic_pointer_cast<ArraySizeAttribute>(
+				this->GetAttributesFor(ARRAY_SIZE_ATTRIBUTE)[0])->GetSize();
+	}
+
+	AttrList GetAttributesFor(std::wstring attrname) const
 	{
 		auto iter = attributeMap.find(attrname);
 		if (iter == attributeMap.end())
@@ -190,8 +215,10 @@ public:
 
 class FormatDesc
 {
-	std::map<std::wstring, FormatMember> members;
+	std::map<std::wstring, int> memberIndex;
+	std::vector<FormatMember> members;
 	std::wstring name;
+	bool isTrivial;
 
 public:
 	FormatDesc()
@@ -199,7 +226,7 @@ public:
 	}
 
 	FormatDesc(std::wstring name, bool basictype) : 
-	name(name)
+	name(name), isTrivial(true)
 	{
 		if (basictype)
 		{
@@ -215,18 +242,30 @@ public:
 			for (std::shared_ptr<Attribute> attr : refs)
 			{
 				auto ref = std::dynamic_pointer_cast<ArraySizeReferenceAttribute>(attr);
-				if (members.find(ref->GetSizeRef()) == members.end())
+				if (memberIndex.find(ref->GetSizeRef()) == memberIndex.end())
 				{
 					throw ReferencedMemberNotFoundException(ref->GetSizeRef(), name, m.GetName());
 				}
 			}
 		}
 
-		if (members.find(m.GetName()) != members.end())
+		if (memberIndex.find(m.GetName()) != memberIndex.end())
 		{
 			throw DuplicateMemberNameException(m.GetName());
 		}
-		members[m.GetName()] = m;
+
+		memberIndex[m.GetName()] = members.size();
+		members.push_back(m);
+
+		if (!m.HasBasicType() || m.IsLengthOnlyKnownAtRuntime())
+		{
+			isTrivial = false;
+		}
+	}
+
+	bool IsTrivial() const
+	{
+		return isTrivial;
 	}
 
 	std::wstring GetName() const
@@ -236,9 +275,17 @@ public:
 
 	void ForeachMember(std::function<void(FormatMember&)> action)
 	{
-		for (auto kvpair : members)
+		for (auto member : members)
 		{
-			action(kvpair.second);
+			action(member);
+		}
+	}
+
+	void ForeachMemberBackwards(std::function<void(FormatMember&)> action)
+	{
+		for (int i=members.size()-1; i >= 0; i--)
+		{
+			action(members[i]);
 		}
 	}
 };

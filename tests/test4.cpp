@@ -3,14 +3,13 @@
 
 int main()
 {
-	/*
-	someNums* a;
-	memset(a, 0, sizeof(someNums));
-	a->size = 0xff;
+	OtherFormat* other = CreateOtherFormat();
 
-	FILE* fp = fopen("test.output", "wb");
-	write_someNums(fp, &a);
-	fclose(fp);*/
+	SomeFormat* some = CreateSomeFormat();
+
+	DeleteSomeFormat(&some);
+
+	DeleteOtherFormat(&other);
 
 	return 0;
 }

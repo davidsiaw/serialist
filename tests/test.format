@@ -1,16 +1,16 @@
-format OtherNums
+format OtherFormat
 {
 	Int32 magic
 	Int32 somenum
 }
 
-format SomeNums
+format SomeFormat
 {
 	Uint32 size
-	OtherNums others
-	OtherNums[size] ref_size_array_of_other
-	OtherNums[10] fixed_size_array_of_other
-	Uint32[size] ref_size_array
-	Uint32[10] fixed_size_array
-	Uint8[#0] null_term_array
+	OtherFormat other
+	OtherFormat[size] refOthers
+	OtherFormat[10] fixedOthers
+	Uint32[size] refUints
+	Uint32[25] fixedUints
+	Uint8[#0] nullTermArray
 }
