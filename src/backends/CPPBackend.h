@@ -6,7 +6,7 @@
 #include <iostream>
 #include "../DataStructures.h"
 
-// C++ Backend. Generates C++99-compliant code to ensure maximum usefulness
+// C++ Backend. Generates C++99-compliant code
 class CPPBackend
 {
 	std::wstring name;

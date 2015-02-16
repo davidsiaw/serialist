@@ -1,7 +1,13 @@
-TESTS = test1.sh test2.sh test3.sh test4 test_duplicate_format.sh
+TESTS = test1.sh \
+		test2.sh \
+		test3.sh \
+		test4 \
+		test_duplicate_format.sh \
+		test_null_with_non_basic_error.sh
 
 check_PROGRAMS = test4
 
+test4_CFLAGS = -std=c89
 test4_SOURCES = test4.cpp test.c
 BUILT_SOURCES = test.c test.h
 

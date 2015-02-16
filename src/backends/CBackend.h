@@ -357,6 +357,7 @@ class CBackend
 		}
 	}
 
+
 	void GenerateWriteFunction(FormatDesc& desc, bool prototype)
 	{
 		std::wcout << "void Write" << desc.GetName() << "(" << desc.GetName() << "* object, unsigned char** out_bytes, size_t* out_length, " << GenErrorOutputParam() << ")";
@@ -369,10 +370,89 @@ class CBackend
 			std::wcout << std::endl;
 			std::wcout << "{" << std::endl;
 
+			std::wcout << "\tsize_t pos = 0;" << std::endl;
+			std::wcout << "\tsize_t datasize = 0;" << std::endl;
+			std::wcout << "\tsize_t length = 0;" << std::endl;
+			std::wcout << "\tunsigned char* bytes = NULL;" << std::endl;
+			std::wcout << "\tunsigned char* temp_bytes = NULL;" << std::endl;
+			std::wcout << "\t*out_error = NO_ERROR;" << std::endl;
+			std::wcout << "\tsize_t i = 0;" << std::endl;
+
 			desc.ForeachMember([&](FormatMember& member)
 			{
+				std::wcout << "\t/* Write " << member.GetName() << " */" << std::endl;
 
+				if (member.IsArray())
+				{
+					std::wstringstream size_expression;
+
+					if (member.HasAttribute(ARRAY_SIZE_ATTRIBUTE))
+					{
+						size_expression << member.GetFixedArraySize();
+					}
+					else
+					{
+						size_expression << "object->" << GetMemberContainingArrayElementCount(member);
+					}
+
+					std::wcout << "\tfor (i = 0; i < " << size_expression.str() << "; i++)" << std::endl;
+					std::wcout << "\t{" << std::endl;
+
+					if (member.HasBasicType())
+					{
+						std::wcout << "\t\tdatasize = sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
+						std::wcout << "\t\tlength += datasize;" << std::endl;
+						std::wcout << "\t\tbytes = realloc(bytes, length);" << std::endl;
+						std::wcout << "\t\tmemcpy(bytes + pos, &object->" << member.GetName() << "[i], datasize);" << std::endl;
+						std::wcout << "\t\tpos = length;" << std::endl;
+					}
+					else
+					{
+						std::wcout << "\t\tWrite" << member.GetTypeName() << "(object->" << member.GetName() << "[i], &temp_bytes, &datasize, out_error);" << std::endl;
+						std::wcout << "\t\tlength += datasize;" << std::endl;
+						std::wcout << "\t\tbytes = realloc(bytes, length);" << std::endl;
+						std::wcout << "\t\tmemcpy(bytes + pos, temp_bytes, datasize);" << std::endl;
+						std::wcout << "\t\tpos = length;" << std::endl;
+						std::wcout << "\t\tfree(temp_bytes);" << std::endl;
+						std::wcout << "\t\ttemp_bytes = NULL;" << std::endl;
+					}
+
+					std::wcout << "\t}" << std::endl;
+
+					if (member.HasBasicType() && member.HasAttribute(NULL_TERMINATED_ATTRIBUTE))
+					{
+						std::wcout << "\tdatasize = sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
+						std::wcout << "\tlength += datasize;" << std::endl;
+						std::wcout << "\tbytes = realloc(bytes, length);" << std::endl;
+						std::wcout << "\tmemset(bytes + pos, 0, datasize);" << std::endl;
+						std::wcout << "\tpos = length;" << std::endl;
+					}
+				}
+				else
+				{
+					if (member.HasBasicType())
+					{
+						std::wcout << "\tdatasize = sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
+						std::wcout << "\tlength += datasize;" << std::endl;
+						std::wcout << "\tbytes = realloc(bytes, length);" << std::endl;
+						std::wcout << "\tmemcpy(bytes + pos, &object->" << member.GetName() << ", datasize);" << std::endl;
+						std::wcout << "\tpos = length;" << std::endl;
+					}
+					else
+					{
+						std::wcout << "\tWrite" << member.GetTypeName() << "(object->" << member.GetName() << ", &temp_bytes, &datasize, out_error);" << std::endl;
+						std::wcout << "\tlength += datasize;" << std::endl;
+						std::wcout << "\tbytes = realloc(bytes, length);" << std::endl;
+						std::wcout << "\tmemcpy(bytes + pos, temp_bytes, datasize);" << std::endl;
+						std::wcout << "\tpos = length;" << std::endl;
+						std::wcout << "\tfree(temp_bytes);" << std::endl;
+						std::wcout << "\ttemp_bytes = NULL;" << std::endl;
+					}
+				}
 			});
+
+			std::wcout << "\t*out_length = length;" << std::endl;
+			std::wcout << "\t*out_bytes = bytes;" << std::endl;
 
 			std::wcout << "}" << std::endl;
 		}
@@ -406,7 +486,7 @@ class CBackend
 
 	void GenerateReadFunction(FormatDesc& desc, bool prototype)
 	{
-		std::wcout << desc.GetName() << "* Read" << desc.GetName() << "(" << "unsigned char* bytes, size_t length, " << GenErrorOutputParam() << ")";
+		std::wcout << desc.GetName() << "* Read" << desc.GetName() << "(" << "unsigned char* bytes, size_t length, size_t start, size_t* out_end, " << GenErrorOutputParam() << ")";
 		if (prototype)
 		{
 			std::wcout << ";" << std::endl;
@@ -417,11 +497,139 @@ class CBackend
 			std::wcout << "{" << std::endl;
 
 			std::wcout << "\t" << desc.GetName() << "* object = Create" << desc.GetName() << "();" << std::endl;
+			std::wcout << "\tsize_t pos = start;" << std::endl;
+			std::wcout << "\tsize_t end;" << std::endl;
+			std::wcout << "\tsize_t i = 0;" << std::endl;
 
 			desc.ForeachMember([&](FormatMember& member)
 			{
+				if (member.HasAttribute(NULL_TERMINATED_ATTRIBUTE) || 
+					(member.IsArray() && !member.HasBasicType()) )
+				{
+					std::wcout << "\t" << GenerateCTypeForAllocation(member) << " temp_" << member.GetName() << ";" << std::endl;
+				}
 			});
 
+			std::wcout << "\t/* End declarations */" << std::endl;
+
+
+			std::wcout << "\tif (object == NULL)" << std::endl;
+			std::wcout << "\t{" << std::endl;
+			std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+			std::wcout << "\t\treturn NULL;" << std::endl;
+			std::wcout << "\t}" << std::endl;
+
+			desc.ForeachMember([&](FormatMember& member)
+			{
+				std::wcout << "\t/* Read " << member.GetName() << " */" << std::endl;
+
+				if (member.IsArray())
+				{
+					if (member.HasBasicType())
+					{
+						if (member.HasAttribute(ARRAY_SIZE_ATTRIBUTE))
+						{
+							std::wcout << "\tmemcpy(object->" << member.GetName() << ", bytes + pos, sizeof(" << GenerateCTypeForAllocation(member) << ") * " << member.GetFixedArraySize() << ");" << std::endl;
+							std::wcout << "\tpos += sizeof(" << GenerateCTypeForAllocation(member) << ") * " << member.GetFixedArraySize() << ";" << std::endl;
+						}
+						else if (member.HasAttribute(ARRAY_SIZE_REF_ATTRIBUTE))
+						{
+							std::wcout << "\tobject->" << member.GetName() << " = calloc(object->" << GetMemberContainingArrayElementCount(member) << ", sizeof(" << GenerateCTypeForAllocation(member) << "))" << ";" << std::endl;
+
+							std::wcout << "\tif (object->" << member.GetName() << " == NULL)" << std::endl;
+							std::wcout << "\t{" << std::endl;
+							std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+							std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
+							std::wcout << "\t\treturn NULL;" << std::endl;
+							std::wcout << "\t}" << std::endl;
+
+							std::wcout << "\tmemcpy(object->" << member.GetName() << ", bytes + pos, sizeof(" << GenerateCTypeForAllocation(member) << ") * object->" << GetMemberContainingArrayElementCount(member) << ");" << std::endl;
+							std::wcout << "\tpos += sizeof(" << GenerateCTypeForAllocation(member) << ") * object->" << GetMemberContainingArrayElementCount(member) << ";" << std::endl;
+
+						}
+						else if (member.HasAttribute(NULL_TERMINATED_ATTRIBUTE))
+						{
+							std::wcout << "\tdo" << std::endl;
+							std::wcout << "\t{" << std::endl;
+
+							std::wcout << "\t\tmemcpy(&temp_" << member.GetName() << ", bytes + pos, sizeof(" << GenerateCTypeForAllocation(member) << "));" << std::endl;
+							std::wcout << "\t\t" << "AddTo" << desc.GetName() << "_" << member.GetName() << "(object, temp_" << member.GetName() << ", out_error);" << std::endl;
+							std::wcout << "\t\tpos += sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
+							std::wcout << "\t\tif (out_error != NO_ERROR)" << std::endl;
+							std::wcout << "\t\t{" << std::endl;
+							std::wcout << "\t\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
+							std::wcout << "\t\t\treturn NULL;" << std::endl;
+							std::wcout << "\t\t}" << std::endl;
+
+							std::wcout << "\t}" << std::endl;
+							std::wcout << "\twhile (temp_" << member.GetName() << ");" << std::endl;
+						}
+					}
+					else
+					{
+						std::wstringstream size_expression;
+
+						if (member.HasAttribute(ARRAY_SIZE_ATTRIBUTE))
+						{
+							size_expression << member.GetFixedArraySize();
+						}
+						else if (member.HasAttribute(ARRAY_SIZE_REF_ATTRIBUTE))
+						{
+							size_expression << "object->" << GetMemberContainingArrayElementCount(member);
+							std::wcout << "\tobject->" << member.GetName() << " = calloc(" << size_expression.str() << ", sizeof(" << GenerateCTypeForAllocation(member) << "))" << ";" << std::endl;
+
+							std::wcout << "\tif (object->" << member.GetName() << " == NULL)" << std::endl;
+							std::wcout << "\t{" << std::endl;
+							std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+							std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
+							std::wcout << "\t\treturn NULL;" << std::endl;
+							std::wcout << "\t}" << std::endl;
+						}
+
+						std::wcout << "\tfor(i = 0; i < " << size_expression.str() << "; i++)" << std::endl;
+						std::wcout << "\t{" << std::endl;
+
+						std::wcout << "\t\ttemp_" << member.GetName() << " = Read" << member.GetTypeName() << "(bytes, length, pos, &end, out_error);" << std::endl;
+
+						std::wcout << "\t\tif (out_error != NO_ERROR)" << std::endl;
+						std::wcout << "\t\t{" << std::endl;
+						std::wcout << "\t\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
+						std::wcout << "\t\t\treturn NULL;" << std::endl;
+						std::wcout << "\t\t}" << std::endl;
+
+						std::wcout << "\t\tpos = end;" << std::endl;
+
+						std::wcout << "\t\tobject->" << member.GetName() << "[i] = temp_" << member.GetName() << ";" << std::endl;
+
+						std::wcout << "\t}" << std::endl;
+
+					}
+
+				}
+				else
+				{
+					if (member.HasBasicType())
+					{
+						std::wcout << "\tmemcpy(&object->" << member.GetName() << ", bytes + pos, sizeof(" << GenerateCTypeForAllocation(member) << "));" << std::endl;
+						std::wcout << "\tpos += sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
+					}
+					else
+					{
+						std::wcout << "\tobject->" << member.GetName() << " = Read" << member.GetTypeName() << "(bytes, length, pos, &end, out_error);" << std::endl;
+
+						std::wcout << "\tif (out_error != NO_ERROR)" << std::endl;
+						std::wcout << "\t{" << std::endl;
+						std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
+						std::wcout << "\t\treturn NULL;" << std::endl;
+						std::wcout << "\t}" << std::endl;
+
+						std::wcout << "\tpos = end;" << std::endl;
+					}
+				}
+
+			});
+
+			std::wcout << "\t*out_end = pos;" << std::endl;
 			std::wcout << "\treturn object;" << std::endl;
 
 			std::wcout << "}" << std::endl;
@@ -455,7 +663,7 @@ class CBackend
 		}
 	}
 
-	void GenerateObjectPresenceCheck(int indent, bool basicType)
+	void GenerateObjectPresenceCheck(int indent, bool basicType, bool returnRequired = true)
 	{
 		std::wstring defaultReturn = L"NULL";
 		if (basicType)
@@ -470,12 +678,19 @@ class CBackend
 
 		std::wcout << padTo(indent+1, '\t') << "if (out_error != NULL) { *out_error = NULL_OBJECT; }" << std::endl;
 
-		std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
+		if (returnRequired)
+		{
+			std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << padTo(indent+1, '\t') << "return;" << std::endl;
+		}
 
 		std::wcout << padTo(indent, '\t') << "}" << std::endl;
 	}
 
-	void GenerateArrayIndexCheck(int indent, const FormatMember& member)
+	void GenerateArrayIndexCheck(int indent, const FormatMember& member, bool returnRequired = true)
 	{
 		std::wstring defaultReturn = L"NULL";
 		if (member.HasBasicType())
@@ -493,7 +708,16 @@ class CBackend
 		}
 		std::wcout << padTo(indent, '\t') << "{" << std::endl;
 		std::wcout << padTo(indent+1, '\t') << "if (out_error != NULL) { *out_error = INDEX_OUT_OF_BOUNDS; }" << std::endl;
-		std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
+
+		if (returnRequired)
+		{
+			std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << padTo(indent+1, '\t') << "return;" << std::endl;
+		}
+
 		std::wcout << padTo(indent, '\t') << "}" << std::endl;
 	}
 
@@ -586,9 +810,9 @@ class CBackend
 				{
 					GenerateGetAccessorFunction(desc, member, true);
 				}
+				std::wcout << std::endl;
 			});
 
-			std::wcout << std::endl;
 		}
 	}
 
@@ -616,6 +840,153 @@ class CBackend
 		}
 	}
 
+	void GenerateArraySetAccessor(FormatDesc& desc, FormatMember& member, bool prototype)
+	{
+		std::wcout << "void Set" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* object, size_t index, " << GenerateCTypeForAllocation(member) << " value, " << GenErrorOutputParam() << ")";
+
+		if (prototype)
+		{
+			std::wcout << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << std::endl;
+			std::wcout << "{" << std::endl;
+
+			GenerateObjectPresenceCheck(1, member.HasBasicType(), false);
+			GenerateArrayIndexCheck(1, member, false);
+
+			std::wcout << "\tobject->" << member.GetName() << "[index] = value;" << std::endl;
+
+			std::wcout << "}" << std::endl;
+		}
+
+	}
+
+	void GenerateArrayAddAccessor(FormatDesc& desc, FormatMember& member, bool prototype)
+	{
+		std::wcout << "void AddTo" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* object, " << GenerateCTypeForAllocation(member) << " value, " << GenErrorOutputParam() << ")";
+
+		if (prototype)
+		{
+			std::wcout << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << std::endl;
+			std::wcout << "{" << std::endl;
+
+			std::wcout << "\tsize_t newCapacity = object->" << GetMemberContainingArrayElementCount(member) << ";" << std::endl;
+			std::wcout << "\t" << GenerateCTypeForDeclaration(member) << " newArray;" << std::endl;
+
+			GenerateObjectPresenceCheck(1, member.HasBasicType(), false);
+
+			std::wcout << "\tif (newCapacity == object->" << GetMemberContainingArrayElementCount(member) << ")" << std::endl;
+			std::wcout << "\t{" << std::endl;
+			std::wcout << "\t\tif (newCapacity == 0)" << std::endl;
+			std::wcout << "\t\t{" << std::endl;
+			std::wcout << "\t\t\tnewCapacity = 2; " << std::endl;
+			std::wcout << "\t\t}" << std::endl;
+			std::wcout << "\t\telse" << std::endl;
+			std::wcout << "\t\t{" << std::endl;
+			std::wcout << "\t\t\tnewCapacity *= 2; " << std::endl;
+			std::wcout << "\t\t}" << std::endl;
+			std::wcout << std::endl;
+			std::wcout << "\t\tnewArray = realloc(object->" << member.GetName() << ", sizeof(" << GenerateCTypeForAllocation(member) << ") * newCapacity);" << std::endl;
+
+			std::wcout << "\t\tif (newArray == NULL)" << std::endl;
+			std::wcout << "\t\t{" << std::endl;
+			std::wcout << "\t\t\t*out_error = ALLOC_FAILED;" << std::endl;
+			std::wcout << "\t\t\treturn;" << std::endl;
+			std::wcout << "\t\t}" << std::endl;
+
+			std::wcout << "\t\t" << "object->" << member.GetName() << " = newArray;" << std::endl;
+			std::wcout << "\t\t" << "object->" << GetMemberContainingArrayCapacity(member) << " = newCapacity;" << std::endl;
+			
+			std::wcout << "\t}" << std::endl;
+			std::wcout << std::endl;
+			std::wcout << "\tobject->" << member.GetName() << "[object->" << GetMemberContainingArrayElementCount(member) << "] = value;" << std::endl;
+			std::wcout << "\tobject->" << GetMemberContainingArrayElementCount(member) << "++;" << std::endl;
+			std::wcout << "}" << std::endl;
+		}
+	}
+
+	void GenerateArrayRemoveFromAccessor(FormatDesc& desc, FormatMember& member, bool prototype)
+	{
+		std::wcout << "void RemoveFrom" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* object, size_t index, " << GenErrorOutputParam() << ")";
+
+		if (prototype)
+		{
+			std::wcout << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << std::endl;
+			std::wcout << "{" << std::endl;
+
+			GenerateObjectPresenceCheck(1, member.HasBasicType(), false);
+			GenerateArrayIndexCheck(1, member, false);
+
+			std::wcout << "\tif (index == object->" << GetMemberContainingArrayElementCount(member) << " - 1)" << std::endl;
+			std::wcout << "\t{" << std::endl;
+			if (member.HasBasicType())
+			{
+				std::wcout << "\t\tobject->" << member.GetName() << "[index] = 0;" << std::endl;
+			}
+			else
+			{
+				std::wcout << "\t\tobject->" << member.GetName() << "[index] = NULL;" << std::endl;
+			}
+			std::wcout << "\t}" << std::endl;
+			std::wcout << "\telse" << std::endl;
+			std::wcout << "\t{" << std::endl;
+			std::wcout << "\t\tobject->" << member.GetName() << "[index] = object->" << member.GetName() << "[object->" << GetMemberContainingArrayElementCount(member) << " - 1];" << std::endl;
+			std::wcout << "\t}" << std::endl;
+			std::wcout << "\tobject->" << GetMemberContainingArrayElementCount(member) << "--;" << std::endl;
+
+			std::wcout << "}" << std::endl;
+		}
+	}
+
+	void GenerateMemberSetAccessor(FormatDesc& desc, FormatMember& member, bool prototype)
+	{
+		std::wcout << "void Set" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* object, " << GenerateCTypeForAllocation(member) << " value, " << GenErrorOutputParam() << ")";
+
+		if (prototype)
+		{
+			std::wcout << ";" << std::endl;
+		}
+		else
+		{
+			std::wcout << std::endl;
+			std::wcout << "{" << std::endl;
+
+			GenerateObjectPresenceCheck(1, member.HasBasicType(), false);
+
+			std::wcout << "\tobject->" << member.GetName() << " = value;" << std::endl;
+
+			std::wcout << "}" << std::endl;
+		}
+	}
+
+	void GenerateSetAccessorFunctions(FormatDesc& desc, FormatMember& member, bool prototype)
+	{
+		if (member.IsArray())
+		{
+			GenerateArraySetAccessor(desc, member, prototype);
+			
+			if (member.IsLengthOnlyKnownAtRuntime())
+			{
+				GenerateArrayAddAccessor(desc, member, prototype);
+				GenerateArrayRemoveFromAccessor(desc, member, prototype);
+			}
+		}
+		else
+		{
+			GenerateMemberSetAccessor(desc, member, prototype);
+		}
+	}
+
 	void GenerateSetAccessorPrototype()
 	{
 		for (auto kvpair : formats)
@@ -628,23 +999,10 @@ class CBackend
 
 			desc.ForeachMember([&](FormatMember& member)
 			{
-				if (member.IsArray())
-				{
-					std::wcout << "void Set" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* in_object, size_t index, " << GenerateCTypeForAllocation(member) << " in_member, " << GenErrorOutputParam() << ");" << std::endl;
-
-					if (member.IsLengthOnlyKnownAtRuntime())
-					{
-						std::wcout << "void AddTo" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* in_object, size_t index, " << GenerateCTypeForAllocation(member) << " in_member, " << GenErrorOutputParam() << ");" << std::endl;
-						std::wcout << "void RemoveFrom" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* in_object, size_t index, " << GenErrorOutputParam() << ");" << std::endl;
-					}
-				}
-				else
-				{
-					std::wcout << "void Set" << desc.GetName() << "_" << member.GetName() << "(" << desc.GetName() << "* in_object, " << GenerateCTypeForAllocation(member) << " in_member, " << GenErrorOutputParam() << ");" << std::endl;
-				}
+				GenerateSetAccessorFunctions(desc, member, true);
+				std::wcout << std::endl;
 			});
 
-			std::wcout << std::endl;
 		}
 	}
 
@@ -656,7 +1014,8 @@ class CBackend
 
 			desc.ForeachMember([&](FormatMember& member)
 			{
-
+				GenerateSetAccessorFunctions(desc, member, false);
+				std::wcout << std::endl;
 			});
 		}
 	}
@@ -688,7 +1047,6 @@ public:
 		std::wcout << "#define NULL_OBJECT         1" << std::endl;
 		std::wcout << "#define ALLOC_FAILED        2" << std::endl;
 		std::wcout << "#define INDEX_OUT_OF_BOUNDS 3" << std::endl;
-
 		std::wcout << "#endif // _SERIALIST_DEFINES_" << std::endl << std::endl;
 
 		std::wcout << "#ifdef __cplusplus" << std::endl;
@@ -713,6 +1071,7 @@ public:
 	void GenerateSource()
 	{
 		std::wcout << "#include <stdlib.h>" << std::endl << std::endl;
+		std::wcout << "#include <string.h>" << std::endl << std::endl;
 		std::wcout << "#include \"" << name << ".h\"" << std::endl << std::endl;
 
 		GenerateStructDefinition();
