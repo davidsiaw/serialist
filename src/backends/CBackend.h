@@ -8,6 +8,11 @@
 #include <iomanip>
 #include "../DataStructures.h"
 
+class CGenerator
+{
+public:
+};
+
 // C Backend. Generates C89-compliant code
 class CBackend
 {
@@ -24,7 +29,7 @@ class CBackend
 
 	std::wstring GenErrorOutputParam()
 	{
-		return L"int* out_error";
+		return L"SerialistError* out_error";
 	}
 
 	std::wstring CTypeName(std::wstring originalTypeName)
@@ -156,6 +161,14 @@ class CBackend
 		return ss.str();
 	}
 
+
+	void GenerateSetErrorStructure(std::wstring errorCode, int indent = 0)
+	{
+		std::wcout << padTo(indent, '\t') << "if (out_error != NULL)" << std::endl;
+		std::wcout << padTo(indent, '\t') << "{" << std::endl;
+		std::wcout << padTo(indent+1, '\t') << "out_error->errorCode = " << errorCode << ";" << std::endl;
+		std::wcout << padTo(indent, '\t') << "}" << std::endl;
+	}
 
 	void GenerateDeleteDefinitionForMember(FormatMember member, int indent = 0)
 	{
@@ -357,7 +370,6 @@ class CBackend
 		}
 	}
 
-
 	void GenerateWriteFunction(FormatDesc& desc, bool prototype)
 	{
 		std::wcout << "void Write" << desc.GetName() << "(" << desc.GetName() << "* object, unsigned char** out_bytes, size_t* out_length, " << GenErrorOutputParam() << ")";
@@ -375,8 +387,11 @@ class CBackend
 			std::wcout << "\tsize_t length = 0;" << std::endl;
 			std::wcout << "\tunsigned char* bytes = NULL;" << std::endl;
 			std::wcout << "\tunsigned char* temp_bytes = NULL;" << std::endl;
-			std::wcout << "\t*out_error = NO_ERROR;" << std::endl;
 			std::wcout << "\tsize_t i = 0;" << std::endl;
+
+			GenerateSetErrorStructure(L"NO_ERROR", 1);
+
+			GenerateObjectPresenceCheck(1, false, false);
 
 			desc.ForeachMember([&](FormatMember& member)
 			{
@@ -515,7 +530,7 @@ class CBackend
 
 			std::wcout << "\tif (object == NULL)" << std::endl;
 			std::wcout << "\t{" << std::endl;
-			std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+			GenerateSetErrorStructure(L"ALLOC_FAILED", 2);
 			std::wcout << "\t\treturn NULL;" << std::endl;
 			std::wcout << "\t}" << std::endl;
 
@@ -538,7 +553,7 @@ class CBackend
 
 							std::wcout << "\tif (object->" << member.GetName() << " == NULL)" << std::endl;
 							std::wcout << "\t{" << std::endl;
-							std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+							GenerateSetErrorStructure(L"ALLOC_FAILED", 2);
 							std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
 							std::wcout << "\t\treturn NULL;" << std::endl;
 							std::wcout << "\t}" << std::endl;
@@ -555,7 +570,7 @@ class CBackend
 							std::wcout << "\t\tmemcpy(&temp_" << member.GetName() << ", bytes + pos, sizeof(" << GenerateCTypeForAllocation(member) << "));" << std::endl;
 							std::wcout << "\t\t" << "AddTo" << desc.GetName() << "_" << member.GetName() << "(object, temp_" << member.GetName() << ", out_error);" << std::endl;
 							std::wcout << "\t\tpos += sizeof(" << GenerateCTypeForAllocation(member) << ");" << std::endl;
-							std::wcout << "\t\tif (out_error != NO_ERROR)" << std::endl;
+							std::wcout << "\t\tif (out_error->errorCode != NO_ERROR)" << std::endl;
 							std::wcout << "\t\t{" << std::endl;
 							std::wcout << "\t\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
 							std::wcout << "\t\t\treturn NULL;" << std::endl;
@@ -580,7 +595,7 @@ class CBackend
 
 							std::wcout << "\tif (object->" << member.GetName() << " == NULL)" << std::endl;
 							std::wcout << "\t{" << std::endl;
-							std::wcout << "\t\t*out_error = ALLOC_FAILED;" << std::endl;
+							GenerateSetErrorStructure(L"ALLOC_FAILED", 2);
 							std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
 							std::wcout << "\t\treturn NULL;" << std::endl;
 							std::wcout << "\t}" << std::endl;
@@ -591,7 +606,7 @@ class CBackend
 
 						std::wcout << "\t\ttemp_" << member.GetName() << " = Read" << member.GetTypeName() << "(bytes, length, pos, &end, out_error);" << std::endl;
 
-						std::wcout << "\t\tif (out_error != NO_ERROR)" << std::endl;
+						std::wcout << "\t\tif (out_error->errorCode != NO_ERROR)" << std::endl;
 						std::wcout << "\t\t{" << std::endl;
 						std::wcout << "\t\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
 						std::wcout << "\t\t\treturn NULL;" << std::endl;
@@ -617,7 +632,7 @@ class CBackend
 					{
 						std::wcout << "\tobject->" << member.GetName() << " = Read" << member.GetTypeName() << "(bytes, length, pos, &end, out_error);" << std::endl;
 
-						std::wcout << "\tif (out_error != NO_ERROR)" << std::endl;
+						std::wcout << "\tif (out_error->errorCode != NO_ERROR)" << std::endl;
 						std::wcout << "\t{" << std::endl;
 						std::wcout << "\t\tDelete" << desc.GetName() << "(&object);" << std::endl;
 						std::wcout << "\t\treturn NULL;" << std::endl;
@@ -671,13 +686,13 @@ class CBackend
 			defaultReturn = L"0";
 		}
 
-		std::wcout << padTo(indent, '\t') << "if (out_error != NULL) { *out_error = NO_ERROR; }" << std::endl;
-
+		GenerateSetErrorStructure(L"NO_ERROR", indent);
+		
 		std::wcout << padTo(indent, '\t') << "if (object == NULL)" << std::endl;
 		std::wcout << padTo(indent, '\t') << "{" << std::endl;
 
-		std::wcout << padTo(indent+1, '\t') << "if (out_error != NULL) { *out_error = NULL_OBJECT; }" << std::endl;
-
+		GenerateSetErrorStructure(L"NULL_OBJECT", indent + 1);
+		
 		if (returnRequired)
 		{
 			std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
@@ -707,8 +722,8 @@ class CBackend
 			std::wcout << padTo(indent, '\t') << "if (index >= " << member.GetFixedArraySize() << ")" << std::endl;
 		}
 		std::wcout << padTo(indent, '\t') << "{" << std::endl;
-		std::wcout << padTo(indent+1, '\t') << "if (out_error != NULL) { *out_error = INDEX_OUT_OF_BOUNDS; }" << std::endl;
-
+		GenerateSetErrorStructure(L"INDEX_OUT_OF_BOUNDS", indent + 1);
+		
 		if (returnRequired)
 		{
 			std::wcout << padTo(indent+1, '\t') << "return " << defaultReturn << ";" << std::endl;
@@ -881,6 +896,15 @@ class CBackend
 
 			GenerateObjectPresenceCheck(1, member.HasBasicType(), false);
 
+			if (member.HasAttribute(NULL_TERMINATED_ATTRIBUTE))
+			{
+				std::wcout << "\tif (value == 0)" << std::endl;
+				std::wcout << "\t{" << std::endl;
+				GenerateSetErrorStructure(L"ZERO_NOT_ALLOWED", 2);
+				std::wcout << "\t\treturn;" << std::endl;
+				std::wcout << "\t}" << std::endl;
+			}
+
 			std::wcout << "\tif (newCapacity == object->" << GetMemberContainingArrayElementCount(member) << ")" << std::endl;
 			std::wcout << "\t{" << std::endl;
 			std::wcout << "\t\tif (newCapacity == 0)" << std::endl;
@@ -896,7 +920,7 @@ class CBackend
 
 			std::wcout << "\t\tif (newArray == NULL)" << std::endl;
 			std::wcout << "\t\t{" << std::endl;
-			std::wcout << "\t\t\t*out_error = ALLOC_FAILED;" << std::endl;
+			GenerateSetErrorStructure(L"ALLOC_FAILED", 3);
 			std::wcout << "\t\t\treturn;" << std::endl;
 			std::wcout << "\t\t}" << std::endl;
 
@@ -1047,6 +1071,14 @@ public:
 		std::wcout << "#define NULL_OBJECT         1" << std::endl;
 		std::wcout << "#define ALLOC_FAILED        2" << std::endl;
 		std::wcout << "#define INDEX_OUT_OF_BOUNDS 3" << std::endl;
+		std::wcout << "#define ZERO_NOT_ALLOWED    4" << std::endl;
+
+		std::wcout << "typedef struct _tag_SerialistError" << std::endl;
+		std::wcout << "{" << std::endl;
+		std::wcout << "\tint errorCode;" << std::endl;
+		std::wcout << "} SerialistError;" << std::endl;
+
+
 		std::wcout << "#endif // _SERIALIST_DEFINES_" << std::endl << std::endl;
 
 		std::wcout << "#ifdef __cplusplus" << std::endl;

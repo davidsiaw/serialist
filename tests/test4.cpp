@@ -6,7 +6,7 @@ int main()
 
 	unsigned char* bytes;
 	size_t length;
-	int error;
+	SerialistError error;
 
 	SomeFormat* some = CreateSomeFormat();
 
@@ -16,13 +16,11 @@ int main()
 
 	WriteSomeFormat(some, &bytes, &length, &error);
 
-
 	FILE* fp = fopen("mm.bin", "wb");
 	fwrite(bytes, length, 1, fp);
 	fclose(fp);
 
 	DeleteSomeFormat(&some);
-
 
 	return 0;
 }
