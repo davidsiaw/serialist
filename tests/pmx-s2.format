@@ -1,0 +1,218 @@
+// Subset of the PMX format for simplicity
+
+
+format PMX
+{
+	Header header
+	ModelInfo modelInfo
+
+	[ConstructWith: header]
+	VertexData vertexData
+}
+
+subset Boolean : Uint8 = 0,1
+subset ZeroToFour : Uint8 = 0..4
+subset OneTwoFour : Uint8 = 1,2,4
+subset Subset3 : Uint8 = 0,1,2,3,4
+
+format Header
+{
+	[ArraySize: 4]
+	[Mustcontain: ['P', 'M', 'X', 0x20]]
+	Uint8 signature
+
+	[Mustcontain: 2.0]
+	Float32 version
+
+	[ConstructWith: 8]
+	Uint8 globalsCount
+
+	[ArraySize: globalsCount > 0 ? 1 : 0]
+	Boolean encoding
+
+	[ArraySize: globalsCount > 1 ? 1 : 0]
+	ZeroToFour additionalVec4Count
+
+	[ArraySize: globalsCount > 2 ? 1 : 0]
+	OneTwoFour vertexIndexSize
+
+	[ArraySize: globalsCount > 3 ? 1 : 0]
+	OneTwoFour textureIndexSize
+
+	[ArraySize: globalsCount > 4 ? 1 : 0]
+	OneTwoFour materialIndexSize
+
+	[ArraySize: globalsCount > 5 ? 1 : 0]
+	OneTwoFour boneIndexSize
+
+	[ArraySize: globalsCount > 6 ? 1 : 0]
+	OneTwoFour morphIndexSize
+
+	[ArraySize: globalsCount > 7 ? 1 : 0]
+	OneTwoFour rigidbodyIndexSize
+}
+
+format ModelInfo
+{
+	Text nameJp
+	Text nameEn
+	Text commentsJp
+	Text commentsEn
+}
+
+format BDEF1
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: 1]
+	[ConstructWith: indexSize]
+	Index bones
+}
+
+format BDEF2
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: 2]
+	[ConstructWith: indexSize]
+	Index bones
+
+	Float32 bone0Weight
+}
+
+format BDEF4
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: 4]
+	[ConstructWith: indexSize]
+	Index bones
+
+	[ArraySize: 4]
+	Float32 boneWeights
+}
+
+format SDEF
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: 2]
+	[ConstructWith: indexSize]
+	Index bones
+
+	Float32 bone0Weight
+	Float32 c, r0, r1
+}
+
+format QDEF
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: 4]
+	[ConstructWith: indexSize]
+	Index bones
+
+	[ArraySize: 4]
+	Float32 boneWeights
+}
+
+format WeightDeformInfo
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	Subset3 weightDeformType
+
+	[ArraySize: weightDeformType == 0 ? 1 : 0]
+	[ConstructWith: indexSize]
+	BDEF1 bdef1
+
+	[ArraySize: weightDeformType == 1 ? 1 : 0]
+	[ConstructWith: indexSize]
+	BDEF2 bdef2
+
+	[ArraySize: weightDeformType == 2 ? 1 : 0]
+	[ConstructWith: indexSize]
+	BDEF4 bdef4
+
+	[ArraySize: weightDeformType == 3 ? 1 : 0]
+	[ConstructWith: indexSize]
+	SDEF sdef
+
+	[ArraySize: weightDeformType == 4 ? 1 : 0]
+	[ConstructWith: indexSize]
+	QDEF qdef
+}
+
+format Vertex (Header header)
+{
+	[Parameter]
+	Header header
+
+	Vec3 position
+	Vec3 normal
+	UV texture
+
+	[ArraySize: header.additionalVec4Count[0]]
+	Vec4 additionals
+
+	[ConstructWith: header.vertexIndexSize[0]]
+	WeightDeformInfo weightDeform
+
+	Float32 outline
+}
+
+format VertexData
+{
+	[Parameter]
+	Header header
+
+	Uint32 count
+
+	[ArraySize: count]
+	[ConstructWith: header]
+	Vertex vertices
+}
+
+format Vec4
+{
+	Float32 w,x,y,z
+}
+
+format Vec3
+{
+	Float32 x,y,z
+}
+
+format UV
+{
+	Float32 u,v
+}
+
+format Text
+{
+	Uint32 length
+
+	[ArraySize: length]
+	Uint8 content
+}
+
+format Index (Uint8<1,2,4> indexSize)
+{
+	[Parameter]
+	OneTwoFour indexSize
+
+	[ArraySize: indexSize == 1 ? 1 : 0]
+	Uint8 byte;
+
+	[ArraySize: indexSize == 2 ? 1 : 0]
+	Uint16 word;
+
+	[ArraySize: indexSize == 4 ? 1 : 0]
+	Uint32 dword;
+}

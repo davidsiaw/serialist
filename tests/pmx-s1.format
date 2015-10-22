@@ -1,0 +1,120 @@
+// Subset of the PMX format for simplicity
+
+
+format PMX
+{
+	Header header
+	ModelInfo modelInfo
+	VertexData vertexData (header)
+}
+
+format Header
+{
+	Uint8[4] signature = ['P', 'M', 'X', 0x20]
+	Float32 version = 2.0
+	Uint8 globalsCount (8)
+
+	Uint8<0,1>[globalsCount > 0] encoding
+	Uint8<0..4>[globalsCount > 1] additionalVec4Count
+	Uint8<1,2,4>[globalsCount > 2] vertexIndexSize
+	Uint8<1,2,4>[globalsCount > 3] textureIndexSize
+	Uint8<1,2,4>[globalsCount > 4] materialIndexSize
+	Uint8<1,2,4>[globalsCount > 5] boneIndexSize
+	Uint8<1,2,4>[globalsCount > 6] morphIndexSize
+	Uint8<1,2,4>[globalsCount > 7] rigidbodyIndexSize
+}
+
+format ModelInfo
+{
+	Text nameJp
+	Text nameEn
+	Text commentsJp
+	Text commentsEn
+}
+
+format BDEF1 (Uint8<1,2,4> indexSize)
+{
+	Index[1] bones (indexSize)
+}
+
+format BDEF2 (Uint8<1,2,4> indexSize)
+{
+	Index[2] bones (indexSize)
+	Float32 bone0Weight
+}
+
+format BDEF4 (Uint8<1,2,4> indexSize)
+{
+	Index[4] bones (indexSize)
+	Float32[4] boneWeights
+}
+
+format SDEF (Uint8<1,2,4> indexSize)
+{
+	Index[2] bones (indexSize)
+	Float32 bone0Weight
+	Float32 c, r0, r1
+}
+
+format QDEF (Uint8<1,2,4> indexSize)
+{
+	Index[4] bones (indexSize)
+	Float32[4] boneWeights
+}
+
+format WeightDeformInfo (Uint8 indexSize)
+{
+	Uint8<0,1,2,3,4> weightDeformType
+
+	BDEF1[weightDeformType == 0] bdef1 (indexSize)
+	BDEF2[weightDeformType == 1] bdef2 (indexSize)
+	BDEF4[weightDeformType == 2] bdef4 (indexSize)
+	SDEF[weightDeformType == 3] sdef (indexSize)
+	QDEF[weightDeformType == 4] qdef (indexSize)
+}
+
+format Vertex (Header header)
+{
+	Vec3 position
+	Vec3 normal
+	UV texture
+	Vec4[header.additionalVec4Count[0]] additionals
+
+	WeightDeformInfo weightDeform (header.vertexIndexSize[0])
+
+	Float32 outline
+}
+
+format VertexData (Header header)
+{
+	Uint32 count
+	Vertex[count] vertices (header)
+}
+
+format Vec4
+{
+	Float32 w,x,y,z
+}
+
+format Vec3
+{
+	Float32 x,y,z
+}
+
+format UV
+{
+	Float32 u,v
+}
+
+format Text
+{
+	Uint32 length
+	Uint8[length] content
+}
+
+format Index (Uint8<1,2,4> indexSize)
+{
+	Uint8[indexSize == 1] byte;
+	Uint16[indexSize == 2] word;
+	Uint32[indexSize == 4] dword;
+}

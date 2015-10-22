@@ -1,0 +1,4 @@
+format Simple
+{
+	Uint32 integer
+}

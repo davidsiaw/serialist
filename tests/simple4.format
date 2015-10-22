@@ -1,0 +1,10 @@
+format Simple
+{
+	Uint32 integer
+	Uint64 anotherInteger
+
+	Uint8 integerArraySize
+
+	[ArraySize: add(5, add(1,integerArraySize))]
+	Int32 integerArray
+}

@@ -1,17 +1,7 @@
 #!/bin/bash
 
-echo "Building coco/R"
-pushd coco-r-cpp
+pushd parser
+bundle exec ruco serialist.ruco 
 make
 popd
-
-echo "Building grammar"
-pushd src
-../coco-r-cpp/Coco serialist.atg
-popd
-
-echo "Building serialist"
-autoreconf --force --install
-./configure
-make
-
+bundle exec bin/serialist-gen tests/empty.format

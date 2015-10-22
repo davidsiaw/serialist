@@ -1,0 +1,40 @@
+format Scratch
+{
+	SimpleTypes simpleTypes
+	Arrays arrays
+	MagicHeaders magicHeaders
+}
+
+format SimpleTypes
+{
+	Uint8 unsignedbyte
+	Uint16 unsignedword
+	Uint32 unsigneddword
+	Uint64 unsignedqword
+	Int8 byte
+	Int16 word
+	Int32 dword
+	Int64 qword
+}
+
+format Arrays
+{
+	Uint8[4] fourUnsignedBytes
+	Uint16[6] sixUnsignedWords
+}
+
+format MagicHeaders
+{
+	Uint8[4] magicLetters = ['a', 'b', 'c', 'd']
+	Uint32 magicNumber = 0xdeadbeef
+}
+
+format Bits
+{
+	Uint8 flags
+}
+
+format Offset
+{
+	
+}

@@ -1,0 +1,5 @@
+format Simple
+{
+	Uint32 integer
+	Uint64 anotherInteger
+}

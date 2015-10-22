@@ -1,0 +1,298 @@
+
+#include <iostream>
+#include <memory>
+#include "Serialist.hpp"
+
+/*
+	WARNING: This file is generated using ruco. Please modify the .ruco file if you wish to change anything
+	https://github.com/davidsiaw/ruco
+*/
+
+COMPILER Serialist
+
+SerialistPtr serialist;
+
+CHARACTERS
+	bigletter    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".
+	letter       = "abcdefghijklmnopqrstuvwxyz".
+	underscore   = "_".
+	digit        = "0123456789".
+	cr           = '\r'.
+	lf           = '\n'.
+	tab          = '\t'.
+	stringCh     = ANY - '"' - '\\' - cr - lf.
+	charCh       = ANY - '\'' - '\\' - cr - lf.
+	printable    =  '\u0020' .. '\u007e'.
+	hex          = "0123456789abcdef".
+
+TOKENS
+	pascalcase   = bigletter { bigletter | letter | digit }.
+	camelcase    = letter { bigletter | letter | digit }.
+
+	integer      = digit { digit }.
+	hexinteger   = '0' 'x' hex { hex }.
+
+	string       = '"' { stringCh | '\\' printable } '"'.
+	badString    = '"' { stringCh | '\\' printable } (cr | lf).
+	char         = '\'' ( charCh | '\\' printable { hex } ) '\''.
+	endOfLine    = cr | lf.
+
+PRAGMAS
+	ddtSym    = '$' { digit | letter }. 
+	optionSym = '$' letter { letter } '='
+	            { digit | letter
+	            | '-' | '.' | ':'
+	            }.
+
+
+COMMENTS FROM "/*" TO "*/" NESTED
+COMMENTS FROM "//" TO lf
+
+IGNORE tab + cr + lf
+
+/*-------------------------------------------------------------------------*/
+
+PRODUCTIONS
+
+Serialist = (. serialist = std::make_shared<class Serialist>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. FormatPtr format; .)
+(
+	{
+		Format<format> (. serialist->formats.push_back(format); .)
+	}
+)
+(. serialist->_line = curline; serialist->_col = curcol; .)
+.
+
+TypeIdentifier<TypeIdentifierPtr& production> = (. production = std::make_shared<class TypeIdentifier>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	pascalcase (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+MemberIdentifier<MemberIdentifierPtr& production> = (. production = std::make_shared<class MemberIdentifier>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	camelcase (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+NumberLit<NumberLitPtr& production> = (. production = std::make_shared<class NumberLit>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	integer (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+CharLit<CharLitPtr& production> = (. production = std::make_shared<class CharLit>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	char (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+StringLit<StringLitPtr& production> = (. production = std::make_shared<class StringLit>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	string (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+IntegerLiteral<IntegerLiteralPtr& production> = (. production = std::make_shared<class IntegerLiteral>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. NumberLitPtr numberlit; .)
+(
+	NumberLit<numberlit> (. production->numberlit = numberlit; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+MemberName<MemberNamePtr& production> = (. production = std::make_shared<class MemberName>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. MemberIdentifierPtr memberidentifier; .)
+(
+	MemberIdentifier<memberidentifier> (. production->memberidentifier = memberidentifier; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+CharLiteral<CharLiteralPtr& production> = (. production = std::make_shared<class CharLiteral>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. CharLitPtr charlit; .)
+(
+	CharLit<charlit> (. production->charlit = charlit; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+StringLiteral<StringLiteralPtr& production> = (. production = std::make_shared<class StringLiteral>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. StringLitPtr stringlit; .)
+(
+	StringLit<stringlit> (. production->stringlit = stringlit; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+BracketedExpression<BracketedExpressionPtr& production> = (. production = std::make_shared<class BracketedExpression>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. ExpressionPtr expression; .)
+(
+	"("
+	Expression<expression> (. production->expression = expression; .)
+	")"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Primary<PrimaryPtr& production> = 
+(. unsigned curline = la->line, curcol = la->col; .)
+(. IntegerLiteralPtr integerliteral; .)
+(. CharLiteralPtr charliteral; .)
+(. StringLiteralPtr stringliteral; .)
+(. MemberNamePtr membername; .)
+(. BracketedExpressionPtr bracketedexpression; .)
+(
+	(
+		IntegerLiteral<integerliteral> (. production = integerliteral; .)|
+		CharLiteral<charliteral> (. production = charliteral; .)|
+		StringLiteral<stringliteral> (. production = stringliteral; .)|
+		MemberName<membername> (. production = membername; .)|
+		BracketedExpression<bracketedexpression> (. production = bracketedexpression; .)
+	)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+FunctionInvoke<FunctionInvokePtr& production> = (. production = std::make_shared<class FunctionInvoke>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. ExpressionPtr expression; .)
+(
+	"("
+	Expression<expression> (. production->expressions.push_back(expression); .)
+	{
+		(
+			","
+			Expression<expression> (. production->expressions.push_back(expression); .)
+		)
+	}
+	")"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Invocation<InvocationPtr& production> = 
+(. unsigned curline = la->line, curcol = la->col; .)
+(. FunctionInvokePtr functioninvoke; .)
+(
+	(
+		FunctionInvoke<functioninvoke> (. production = functioninvoke; .)
+	)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Unary<UnaryPtr& production> = (. production = std::make_shared<class Unary>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. PrimaryPtr primary; .)
+(. InvocationPtr invocation; .)
+(
+	Primary<primary> (. production->primary = primary; .)
+	{
+		Invocation<invocation> (. production->invocations.push_back(invocation); .)
+	}
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Expression<ExpressionPtr& production> = (. production = std::make_shared<class Expression>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. UnaryPtr unary; .)
+(
+	Unary<unary> (. production->unary = unary; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+AttributeParams<AttributeParamsPtr& production> = (. production = std::make_shared<class AttributeParams>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. ExpressionPtr expression; .)
+(
+	":"
+	Expression<expression> (. production->expressions.push_back(expression); .)
+	{
+		(
+			","
+			Expression<expression> (. production->expressions.push_back(expression); .)
+		)
+	}
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Attribute<AttributePtr& production> = (. production = std::make_shared<class Attribute>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. TypeIdentifierPtr typeidentifier; .)
+(. AttributeParamsPtr attributeparams; .)
+(
+	"["
+	TypeIdentifier<typeidentifier> (. production->typeidentifier = typeidentifier; .)
+	[
+		AttributeParams<attributeparams> (. production->attributeparams.push_back(attributeparams); .)
+	]
+	"]"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Statement<StatementPtr& production> = (. production = std::make_shared<class Statement>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. AttributePtr attribute; .)
+(. TypeIdentifierPtr typeidentifier; .)
+(. MemberIdentifierPtr memberidentifier; .)
+(
+	{
+		Attribute<attribute> (. production->attributes.push_back(attribute); .)
+	}
+	TypeIdentifier<typeidentifier> (. production->typeidentifier = typeidentifier; .)
+	MemberIdentifier<memberidentifier> (. production->memberidentifier = memberidentifier; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Format<FormatPtr& production> = (. production = std::make_shared<class Format>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. AttributePtr attribute; .)
+(. TypeIdentifierPtr typeidentifier; .)
+(. StatementPtr statement; .)
+(
+	{
+		Attribute<attribute> (. production->attributes.push_back(attribute); .)
+	}
+	"format"
+	TypeIdentifier<typeidentifier> (. production->typeidentifier = typeidentifier; .)
+	"{"
+	{
+		Statement<statement> (. production->statements.push_back(statement); .)
+	}
+	"}"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+
+
+END Serialist.
+

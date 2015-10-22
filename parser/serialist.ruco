@@ -1,0 +1,91 @@
+
+token "TypeIdentifier", :pascal_case
+token "MemberIdentifier", :camel_case
+token "NumberLit", :integer
+token "CharLit", :char
+token "StringLit", :string
+
+grammar "IntegerLiteral" do
+	one NumberLit
+end
+
+grammar "MemberName" do
+	one MemberIdentifier
+end
+
+grammar "CharLiteral" do
+	one CharLit
+end
+
+grammar "StringLiteral" do
+	one StringLit
+end
+
+grammar "BracketedExpression" do
+	one "("
+	one Expression
+	one ")"
+end
+
+variation "Primary", 
+			IntegerLiteral, 
+			CharLiteral,
+			StringLiteral,
+			MemberName, 
+			BracketedExpression
+
+grammar "FunctionInvoke" do
+	one "("
+	one Expression
+	maybemany group {
+		one ","
+		one Expression
+	}
+	one ")"
+end
+
+variation "Invocation", FunctionInvoke
+
+grammar "Unary" do
+	one Primary
+	maybemany Invocation
+end
+
+grammar "Expression" do
+	one Unary
+end
+
+grammar "AttributeParams" do
+	one ":"
+	one Expression
+	maybemany group {
+		one ","
+		one Expression
+	}
+end
+
+grammar "Attribute" do
+	one "["
+	one TypeIdentifier
+	maybe AttributeParams 
+	one "]"
+end
+
+grammar "Statement" do
+	maybemany Attribute
+	one TypeIdentifier
+	one MemberIdentifier
+end
+
+grammar "Format" do
+
+	maybemany Attribute
+	one "format" 
+	one TypeIdentifier
+	one "{"
+	maybemany Statement
+	one "}"
+
+end
+
+maybemany Format

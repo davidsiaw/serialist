@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+
+require "serialist-gen/serialist-gen"
+
+require "json"
+require "yaml"
+require "pp"
+require "trollop"
+
+opts = Trollop::options do
+
+	backendList = SerialistGen::available_backends.map do |x|
+		"    #{x[/(.*)Backend/,1]} - #{SerialistGen::Backends.const_get(x).desc}\n" 
+	end.join ""
+
+	banner <<-EOS
+USAGE: serialist-gen <filename> [options]
+
+where [options] are:
+	EOS
+
+	opt :type, "Type of code to generate", type: :string, default: "Lowered"
+
+	banner <<-EOS
+Available backends:
+#{backendList}
+	EOS
+
+end
+
+bindir = File.dirname(__FILE__)
+file = ARGV.shift
+backend = opts[:type]
+
+if !file
+	Trollop::die "Please specify a file to compile"
+end
+
+output = `#{bindir}/serialist-parse #{file}`
+status = $?.to_i
+
+ast = JSON.parse output, symbolize_names: true
+
+if status != 0
+	puts "Error: #{ast[:_error]}"
+	if ast[:_line] and ast[:_col]
+		puts "At line #{ast[:_line]} and column #{ast[:_col]}"
+	end
+	exit 1
+end
+
+name = File.basename( file, ".*" )
+
+conv = SerialistGen::AstConverter.new
+
+puts SerialistGen::generate(name, conv.check_and_convert_ast(ast), backend)
