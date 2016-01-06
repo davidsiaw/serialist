@@ -2,5 +2,8 @@ language: ruby
 rvm:
   - 2.0.0
 before_install: 
-  - gem install bundler -v 1.10.2
-  - sh build.sh
+  - gem install bundler
+
+install:
+  - bundle install
+  - bash build.sh
