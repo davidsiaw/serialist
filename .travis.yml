@@ -1,7 +1,21 @@
 language: ruby
+
+sudo: required
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-5
+    - g++-5
+
 rvm:
   - 2.0.0
-before_install: 
+
+before_install:
+  - sudo unlink /usr/bin/gcc && sudo ln -s /usr/bin/gcc-5 /usr/bin/gcc
+  - gcc --version
   - gem install bundler
 
 install:
