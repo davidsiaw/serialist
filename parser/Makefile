@@ -9,7 +9,7 @@ REDIR = $(REDIR_$(V))
 CXXFLAGS=-g -Wall -std=gnu++11
 	
 LDFLAGS=
-TARGET=../bin/serialist-parse
+TARGET=../exe/serialist-parse
 SRCDIR=.
 SRC=$(shell find $(SRCDIR) -name "*.cpp") 
 OUT=obj

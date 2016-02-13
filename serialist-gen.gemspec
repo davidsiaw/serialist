@@ -24,6 +24,7 @@ Gem::Specification.new do |spec|
 
   spec.files         =  Dir['lib/**/*.rb'] + 
                         Dir['bin/*'] +
+                        Dir['exe/*'] +
                         ["Rakefile"]
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
