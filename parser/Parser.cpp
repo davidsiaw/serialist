@@ -69,33 +69,25 @@ bool Parser::WeakSeparator(int n, int syFol, int repFol) {
 void Parser::Serialist() {
 		serialist = std::make_shared<class Serialist>(); 
 		unsigned curline = la->line, curcol = la->col; 
-		FormatPtr format; 
-		while (la->kind == 13 /* "[" */ || la->kind == 15 /* "format" */) {
-			Format(format);
-			serialist->formats.push_back(format); 
+		ElementPtr element; 
+		while (la->kind == 9 /* "[" */ || la->kind == 15 /* "format" */ || la->kind == 18 /* "subset" */) {
+			Element(element);
+			serialist->elements.push_back(element); 
 		}
 		serialist->_line = curline; serialist->_col = curcol; 
 }
 
-void Parser::Format(FormatPtr& production) {
-		production = std::make_shared<class Format>(); 
+void Parser::Element(ElementPtr& production) {
 		unsigned curline = la->line, curcol = la->col; 
-		AttributePtr attribute; 
-		TypeIdentifierPtr typeidentifier; 
-		StatementPtr statement; 
-		while (la->kind == 13 /* "[" */) {
-			Attribute(attribute);
-			production->attributes.push_back(attribute); 
-		}
-		Expect(15 /* "format" */);
-		TypeIdentifier(typeidentifier);
-		production->typeidentifier = typeidentifier; 
-		Expect(16 /* "{" */);
-		while (la->kind == _pascalcase || la->kind == 13 /* "[" */) {
-			Statement(statement);
-			production->statements.push_back(statement); 
-		}
-		Expect(17 /* "}" */);
+		FormatPtr format; 
+		SubsetPtr subset; 
+		if (la->kind == 9 /* "[" */ || la->kind == 15 /* "format" */) {
+			Format(format);
+			production = format; 
+		} else if (la->kind == 18 /* "subset" */) {
+			Subset(subset);
+			production = subset; 
+		} else SynErr(21);
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -118,7 +110,15 @@ void Parser::MemberIdentifier(MemberIdentifierPtr& production) {
 void Parser::NumberLit(NumberLitPtr& production) {
 		production = std::make_shared<class NumberLit>(); 
 		unsigned curline = la->line, curcol = la->col; 
-		Expect(_integer);
+		Expect(_number);
+		production->content = t->val; 
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::HexLit(HexLitPtr& production) {
+		production = std::make_shared<class HexLit>(); 
+		unsigned curline = la->line, curcol = la->col; 
+		Expect(_hexinteger);
 		production->content = t->val; 
 		production->_line = curline; production->_col = curcol; 
 }
@@ -139,12 +139,21 @@ void Parser::StringLit(StringLitPtr& production) {
 		production->_line = curline; production->_col = curcol; 
 }
 
-void Parser::IntegerLiteral(IntegerLiteralPtr& production) {
-		production = std::make_shared<class IntegerLiteral>(); 
+void Parser::NumberLiteral(NumberLiteralPtr& production) {
+		production = std::make_shared<class NumberLiteral>(); 
 		unsigned curline = la->line, curcol = la->col; 
 		NumberLitPtr numberlit; 
 		NumberLit(numberlit);
 		production->numberlit = numberlit; 
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::HexLiteral(HexLiteralPtr& production) {
+		production = std::make_shared<class HexLiteral>(); 
+		unsigned curline = la->line, curcol = la->col; 
+		HexLitPtr hexlit; 
+		HexLit(hexlit);
+		production->hexlit = hexlit; 
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -175,14 +184,19 @@ void Parser::StringLiteral(StringLiteralPtr& production) {
 		production->_line = curline; production->_col = curcol; 
 }
 
-void Parser::BracketedExpression(BracketedExpressionPtr& production) {
-		production = std::make_shared<class BracketedExpression>(); 
+void Parser::ArrayLiteral(ArrayLiteralPtr& production) {
+		production = std::make_shared<class ArrayLiteral>(); 
 		unsigned curline = la->line, curcol = la->col; 
 		ExpressionPtr expression; 
-		Expect(9 /* "(" */);
+		Expect(9 /* "[" */);
 		Expression(expression);
-		production->expression = expression; 
-		Expect(10 /* ")" */);
+		production->expressions.push_back(expression); 
+		while (la->kind == 10 /* "," */) {
+			Get();
+			Expression(expression);
+			production->expressions.push_back(expression); 
+		}
+		Expect(11 /* "]" */);
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -195,29 +209,58 @@ void Parser::Expression(ExpressionPtr& production) {
 		production->_line = curline; production->_col = curcol; 
 }
 
-void Parser::Primary(PrimaryPtr& production) {
+void Parser::BracketedExpression(BracketedExpressionPtr& production) {
+		production = std::make_shared<class BracketedExpression>(); 
 		unsigned curline = la->line, curcol = la->col; 
-		IntegerLiteralPtr integerliteral; 
+		ExpressionPtr expression; 
+		Expect(12 /* "(" */);
+		Expression(expression);
+		production->expression = expression; 
+		Expect(13 /* ")" */);
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::SimpleLiteral(SimpleLiteralPtr& production) {
+		unsigned curline = la->line, curcol = la->col; 
+		NumberLiteralPtr numberliteral; 
+		HexLiteralPtr hexliteral; 
 		CharLiteralPtr charliteral; 
-		StringLiteralPtr stringliteral; 
-		MemberNamePtr membername; 
-		BracketedExpressionPtr bracketedexpression; 
-		if (la->kind == _integer) {
-			IntegerLiteral(integerliteral);
-			production = integerliteral; 
+		if (la->kind == _number) {
+			NumberLiteral(numberliteral);
+			production = numberliteral; 
+		} else if (la->kind == _hexinteger) {
+			HexLiteral(hexliteral);
+			production = hexliteral; 
 		} else if (la->kind == _char) {
 			CharLiteral(charliteral);
 			production = charliteral; 
+		} else SynErr(22);
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::Primary(PrimaryPtr& production) {
+		unsigned curline = la->line, curcol = la->col; 
+		SimpleLiteralPtr simpleliteral; 
+		StringLiteralPtr stringliteral; 
+		ArrayLiteralPtr arrayliteral; 
+		MemberNamePtr membername; 
+		BracketedExpressionPtr bracketedexpression; 
+		if (la->kind == _number || la->kind == _hexinteger || la->kind == _char) {
+			SimpleLiteral(simpleliteral);
+			production = simpleliteral; 
 		} else if (la->kind == _string) {
 			StringLiteral(stringliteral);
 			production = stringliteral; 
+		} else if (la->kind == 9 /* "[" */) {
+			ArrayLiteral(arrayliteral);
+			production = arrayliteral; 
 		} else if (la->kind == _camelcase) {
 			MemberName(membername);
 			production = membername; 
-		} else if (la->kind == 9 /* "(" */) {
+		} else if (la->kind == 12 /* "(" */) {
 			BracketedExpression(bracketedexpression);
 			production = bracketedexpression; 
-		} else SynErr(19);
+		} else SynErr(23);
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -225,15 +268,15 @@ void Parser::FunctionInvoke(FunctionInvokePtr& production) {
 		production = std::make_shared<class FunctionInvoke>(); 
 		unsigned curline = la->line, curcol = la->col; 
 		ExpressionPtr expression; 
-		Expect(9 /* "(" */);
+		Expect(12 /* "(" */);
 		Expression(expression);
 		production->expressions.push_back(expression); 
-		while (la->kind == 11 /* "," */) {
+		while (la->kind == 10 /* "," */) {
 			Get();
 			Expression(expression);
 			production->expressions.push_back(expression); 
 		}
-		Expect(10 /* ")" */);
+		Expect(13 /* ")" */);
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -252,7 +295,7 @@ void Parser::Unary(UnaryPtr& production) {
 		InvocationPtr invocation; 
 		Primary(primary);
 		production->primary = primary; 
-		while (la->kind == 9 /* "(" */) {
+		while (la->kind == 12 /* "(" */) {
 			Invocation(invocation);
 			production->invocations.push_back(invocation); 
 		}
@@ -263,10 +306,10 @@ void Parser::AttributeParams(AttributeParamsPtr& production) {
 		production = std::make_shared<class AttributeParams>(); 
 		unsigned curline = la->line, curcol = la->col; 
 		ExpressionPtr expression; 
-		Expect(12 /* ":" */);
+		Expect(14 /* ":" */);
 		Expression(expression);
 		production->expressions.push_back(expression); 
-		while (la->kind == 11 /* "," */) {
+		while (la->kind == 10 /* "," */) {
 			Get();
 			Expression(expression);
 			production->expressions.push_back(expression); 
@@ -279,14 +322,14 @@ void Parser::Attribute(AttributePtr& production) {
 		unsigned curline = la->line, curcol = la->col; 
 		TypeIdentifierPtr typeidentifier; 
 		AttributeParamsPtr attributeparams; 
-		Expect(13 /* "[" */);
+		Expect(9 /* "[" */);
 		TypeIdentifier(typeidentifier);
 		production->typeidentifier = typeidentifier; 
-		if (la->kind == 12 /* ":" */) {
+		if (la->kind == 14 /* ":" */) {
 			AttributeParams(attributeparams);
 			production->attributeparams.push_back(attributeparams); 
 		}
-		Expect(14 /* "]" */);
+		Expect(11 /* "]" */);
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -296,7 +339,7 @@ void Parser::Statement(StatementPtr& production) {
 		AttributePtr attribute; 
 		TypeIdentifierPtr typeidentifier; 
 		MemberIdentifierPtr memberidentifier; 
-		while (la->kind == 13 /* "[" */) {
+		while (la->kind == 9 /* "[" */) {
 			Attribute(attribute);
 			production->attributes.push_back(attribute); 
 		}
@@ -304,6 +347,59 @@ void Parser::Statement(StatementPtr& production) {
 		production->typeidentifier = typeidentifier; 
 		MemberIdentifier(memberidentifier);
 		production->memberidentifier = memberidentifier; 
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::Format(FormatPtr& production) {
+		production = std::make_shared<class Format>(); 
+		unsigned curline = la->line, curcol = la->col; 
+		AttributePtr attribute; 
+		TypeIdentifierPtr typeidentifier; 
+		StatementPtr statement; 
+		while (la->kind == 9 /* "[" */) {
+			Attribute(attribute);
+			production->attributes.push_back(attribute); 
+		}
+		Expect(15 /* "format" */);
+		TypeIdentifier(typeidentifier);
+		production->typeidentifier = typeidentifier; 
+		Expect(16 /* "{" */);
+		while (la->kind == _pascalcase || la->kind == 9 /* "[" */) {
+			Statement(statement);
+			production->statements.push_back(statement); 
+		}
+		Expect(17 /* "}" */);
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::SubsetRange(SubsetRangePtr& production) {
+		production = std::make_shared<class SubsetRange>(); 
+		unsigned curline = la->line, curcol = la->col; 
+		SimpleLiteralPtr simpleliteral; 
+		SimpleLiteral(simpleliteral);
+		production->simpleliterals.push_back(simpleliteral); 
+		while (la->kind == 10 /* "," */) {
+			Get();
+			SimpleLiteral(simpleliteral);
+			production->simpleliterals.push_back(simpleliteral); 
+		}
+		production->_line = curline; production->_col = curcol; 
+}
+
+void Parser::Subset(SubsetPtr& production) {
+		production = std::make_shared<class Subset>(); 
+		unsigned curline = la->line, curcol = la->col; 
+		TypeIdentifierPtr typeidentifier; 
+		SubsetRangePtr subsetrange; 
+		Expect(18 /* "subset" */);
+		TypeIdentifier(typeidentifier);
+		production->typeidentifiers.push_back(typeidentifier); 
+		Expect(14 /* ":" */);
+		TypeIdentifier(typeidentifier);
+		production->typeidentifiers.push_back(typeidentifier); 
+		Expect(19 /* "=" */);
+		SubsetRange(subsetrange);
+		production->subsetrange = subsetrange; 
 		production->_line = curline; production->_col = curcol; 
 }
 
@@ -408,7 +504,7 @@ void Parser::Parse() {
 }
 
 Parser::Parser(Scanner *scanner) {
-	maxT = 18;
+	maxT = 20;
 
 	ParserInitCaller<Parser>::CallInit(this);
 	dummyToken = NULL;
@@ -423,8 +519,8 @@ bool Parser::StartOf(int s) {
 	const bool T = true;
 	const bool x = false;
 
-	static bool set[1][20] = {
-		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x}
+	static bool set[1][22] = {
+		{T,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x,x,x, x,x}
 	};
 
 
@@ -448,23 +544,27 @@ void Errors::SynErr(int line, int col, int n) {
 			case 0: s = coco_string_create(L"EOF expected"); break;
 			case 1: s = coco_string_create(L"pascalcase expected"); break;
 			case 2: s = coco_string_create(L"camelcase expected"); break;
-			case 3: s = coco_string_create(L"integer expected"); break;
+			case 3: s = coco_string_create(L"number expected"); break;
 			case 4: s = coco_string_create(L"hexinteger expected"); break;
 			case 5: s = coco_string_create(L"string expected"); break;
 			case 6: s = coco_string_create(L"badString expected"); break;
 			case 7: s = coco_string_create(L"char expected"); break;
 			case 8: s = coco_string_create(L"endOfLine expected"); break;
-			case 9: s = coco_string_create(L"\"(\" expected"); break;
-			case 10: s = coco_string_create(L"\")\" expected"); break;
-			case 11: s = coco_string_create(L"\",\" expected"); break;
-			case 12: s = coco_string_create(L"\":\" expected"); break;
-			case 13: s = coco_string_create(L"\"[\" expected"); break;
-			case 14: s = coco_string_create(L"\"]\" expected"); break;
+			case 9: s = coco_string_create(L"\"[\" expected"); break;
+			case 10: s = coco_string_create(L"\",\" expected"); break;
+			case 11: s = coco_string_create(L"\"]\" expected"); break;
+			case 12: s = coco_string_create(L"\"(\" expected"); break;
+			case 13: s = coco_string_create(L"\")\" expected"); break;
+			case 14: s = coco_string_create(L"\":\" expected"); break;
 			case 15: s = coco_string_create(L"\"format\" expected"); break;
 			case 16: s = coco_string_create(L"\"{\" expected"); break;
 			case 17: s = coco_string_create(L"\"}\" expected"); break;
-			case 18: s = coco_string_create(L"??? expected"); break;
-			case 19: s = coco_string_create(L"invalid Primary"); break;
+			case 18: s = coco_string_create(L"\"subset\" expected"); break;
+			case 19: s = coco_string_create(L"\"=\" expected"); break;
+			case 20: s = coco_string_create(L"??? expected"); break;
+			case 21: s = coco_string_create(L"invalid Element"); break;
+			case 22: s = coco_string_create(L"invalid SimpleLiteral"); break;
+			case 23: s = coco_string_create(L"invalid Primary"); break;
 
 		default:
 		{

@@ -1,9 +1,17 @@
 
+class String
+	def is_i?
+		!!(self =~ /\A[-+]?[0-9]+\z/)
+	end
+end
+
 module SerialistGen
+
 
 	# lowers the ast to a subset of the language
 	# performs checks on semantics
 	class AstConverter
+
 
 		def collapse_expression(expression)
 			if expression
@@ -63,9 +71,9 @@ module SerialistGen
 				if expr[:invocations][i][:_type] == "FunctionInvoke"
 					x = {call: x, params: expr[:invocations][i][:expressions].map {|param| convert_expression(param)} }
 				elsif expr[:invocations][i][:_type] == "RecordAccess"
-					x = {call: "accessmember", params: [ x, expr[:invocations][i][:membername][:_token] ] }
+					x = {call: "acc", params: [ x, expr[:invocations][i][:membername][:_token] ] }
 				elsif expr[:invocations][i][:_type] == "ArrayIndex"
-					x = {call: "accessindex", params: [ x, convert_expression(expr[:invocations][i][:expression]) ] }
+					x = {call: "get", params: [ x, convert_expression(expr[:invocations][i][:expression]) ] }
 				end
 			end
 
@@ -83,16 +91,23 @@ module SerialistGen
 
 			case expr[:_type]
 			when "NumberLit"
-				result = {int: expr[:_token].to_i}
+				if expr[:_token].is_i?
+					result = {int: expr[:_token].to_i} 
+				else
+					result = {real: expr[:_token].to_f} 
+				end
 			when "CharLit"
-				result = {char: convert_char(expr) }
+				result = {int: convert_char(expr).ord, char: convert_char(expr)}
 			when "StringLit"
 				raise "StringLit conversion not implemented yet"
 			when "Unary"
 				result = convert_unary(expr)
 			when "MemberIdentifier"
 				result = {ref: expr[:_token]}
+			when "HexLit"
+				result = {int: /0x(?<num>[a-f0-9]+)/.match(expr[:_token])[:num].to_i(16)}
 			else
+				puts "For the following expression:"
 				p expr
 				raise "handling for #{expr[:_type]} not implemented"
 			end
@@ -218,20 +233,36 @@ module SerialistGen
 			}
 
 			{
-				formats: ast[:formats].map do |format|
-					f = {
-						name: format[:typeidentifier][:_token],
-						deptypes: format[:statements].map { |member| member[:typeidentifier][:_token] },
+				subsets: ast[:elements].
+					select {|e| e[:_content][:_type] == "Subset"}.
+					map { |element| element[:_content] }.
+					map do |subset|
 
-						members: format[:statements].map do |member|
-							check_and_convert_member(member)
-						end
-					}
+						{
+							name: subset[:typeidentifiers][0][:_token],
+							origin_type: subset[:typeidentifiers][1][:_token],
+							elements: subset[:subsetrange][:simpleliterals].map {|x| convert_expression(x)}
+						}
 
-					types[f[:name]] = f[:deptypes]
+					end,
 
-					f
-				end
+				formats: ast[:elements].
+					select {|e| e[:_content][:_type] == "Format"}.
+					map { |element| element[:_content] }.
+					map do |format|
+						f = {
+							name: format[:typeidentifier][:_token],
+							deptypes: format[:statements].map { |member| member[:typeidentifier][:_token] },
+
+							members: format[:statements].map do |member|
+								check_and_convert_member(member)
+							end
+						}
+
+						types[f[:name]] = f[:deptypes]
+
+						f
+					end
 			}
 			
 		end

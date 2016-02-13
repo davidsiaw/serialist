@@ -29,7 +29,7 @@ TOKENS
 	pascalcase   = bigletter { bigletter | letter | digit }.
 	camelcase    = letter { bigletter | letter | digit }.
 
-	integer      = digit { digit }.
+	number       = digit { digit } [ '.' digit { digit } ].
 	hexinteger   = '0' 'x' hex { hex }.
 
 	string       = '"' { stringCh | '\\' printable } '"'.
@@ -56,10 +56,10 @@ PRODUCTIONS
 
 Serialist = (. serialist = std::make_shared<class Serialist>(); .)
 (. unsigned curline = la->line, curcol = la->col; .)
-(. FormatPtr format; .)
+(. ElementPtr element; .)
 (
 	{
-		Format<format> (. serialist->formats.push_back(format); .)
+		Element<element> (. serialist->elements.push_back(element); .)
 	}
 )
 (. serialist->_line = curline; serialist->_col = curcol; .)
@@ -87,7 +87,16 @@ NumberLit<NumberLitPtr& production> = (. production = std::make_shared<class Num
 (. unsigned curline = la->line, curcol = la->col; .)
 
 (
-	integer (. production->content = t->val; .)
+	number (. production->content = t->val; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+HexLit<HexLitPtr& production> = (. production = std::make_shared<class HexLit>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+
+(
+	hexinteger (. production->content = t->val; .)
 )
 (. production->_line = curline; production->_col = curcol; .)
 .
@@ -110,11 +119,20 @@ StringLit<StringLitPtr& production> = (. production = std::make_shared<class Str
 (. production->_line = curline; production->_col = curcol; .)
 .
 
-IntegerLiteral<IntegerLiteralPtr& production> = (. production = std::make_shared<class IntegerLiteral>(); .)
+NumberLiteral<NumberLiteralPtr& production> = (. production = std::make_shared<class NumberLiteral>(); .)
 (. unsigned curline = la->line, curcol = la->col; .)
 (. NumberLitPtr numberlit; .)
 (
 	NumberLit<numberlit> (. production->numberlit = numberlit; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+HexLiteral<HexLiteralPtr& production> = (. production = std::make_shared<class HexLiteral>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. HexLitPtr hexlit; .)
+(
+	HexLit<hexlit> (. production->hexlit = hexlit; .)
 )
 (. production->_line = curline; production->_col = curcol; .)
 .
@@ -146,6 +164,23 @@ StringLiteral<StringLiteralPtr& production> = (. production = std::make_shared<c
 (. production->_line = curline; production->_col = curcol; .)
 .
 
+ArrayLiteral<ArrayLiteralPtr& production> = (. production = std::make_shared<class ArrayLiteral>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. ExpressionPtr expression; .)
+(
+	"["
+	Expression<expression> (. production->expressions.push_back(expression); .)
+	{
+		(
+			","
+			Expression<expression> (. production->expressions.push_back(expression); .)
+		)
+	}
+	"]"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
 BracketedExpression<BracketedExpressionPtr& production> = (. production = std::make_shared<class BracketedExpression>(); .)
 (. unsigned curline = la->line, curcol = la->col; .)
 (. ExpressionPtr expression; .)
@@ -157,18 +192,33 @@ BracketedExpression<BracketedExpressionPtr& production> = (. production = std::m
 (. production->_line = curline; production->_col = curcol; .)
 .
 
+SimpleLiteral<SimpleLiteralPtr& production> = 
+(. unsigned curline = la->line, curcol = la->col; .)
+(. NumberLiteralPtr numberliteral; .)
+(. HexLiteralPtr hexliteral; .)
+(. CharLiteralPtr charliteral; .)
+(
+	(
+		NumberLiteral<numberliteral> (. production = numberliteral; .)|
+		HexLiteral<hexliteral> (. production = hexliteral; .)|
+		CharLiteral<charliteral> (. production = charliteral; .)
+	)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
 Primary<PrimaryPtr& production> = 
 (. unsigned curline = la->line, curcol = la->col; .)
-(. IntegerLiteralPtr integerliteral; .)
-(. CharLiteralPtr charliteral; .)
+(. SimpleLiteralPtr simpleliteral; .)
 (. StringLiteralPtr stringliteral; .)
+(. ArrayLiteralPtr arrayliteral; .)
 (. MemberNamePtr membername; .)
 (. BracketedExpressionPtr bracketedexpression; .)
 (
 	(
-		IntegerLiteral<integerliteral> (. production = integerliteral; .)|
-		CharLiteral<charliteral> (. production = charliteral; .)|
+		SimpleLiteral<simpleliteral> (. production = simpleliteral; .)|
 		StringLiteral<stringliteral> (. production = stringliteral; .)|
+		ArrayLiteral<arrayliteral> (. production = arrayliteral; .)|
 		MemberName<membername> (. production = membername; .)|
 		BracketedExpression<bracketedexpression> (. production = bracketedexpression; .)
 	)
@@ -288,6 +338,49 @@ Format<FormatPtr& production> = (. production = std::make_shared<class Format>()
 		Statement<statement> (. production->statements.push_back(statement); .)
 	}
 	"}"
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+SubsetRange<SubsetRangePtr& production> = (. production = std::make_shared<class SubsetRange>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. SimpleLiteralPtr simpleliteral; .)
+(
+	SimpleLiteral<simpleliteral> (. production->simpleliterals.push_back(simpleliteral); .)
+	{
+		(
+			","
+			SimpleLiteral<simpleliteral> (. production->simpleliterals.push_back(simpleliteral); .)
+		)
+	}
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Subset<SubsetPtr& production> = (. production = std::make_shared<class Subset>(); .)
+(. unsigned curline = la->line, curcol = la->col; .)
+(. TypeIdentifierPtr typeidentifier; .)
+(. SubsetRangePtr subsetrange; .)
+(
+	"subset"
+	TypeIdentifier<typeidentifier> (. production->typeidentifiers.push_back(typeidentifier); .)
+	":"
+	TypeIdentifier<typeidentifier> (. production->typeidentifiers.push_back(typeidentifier); .)
+	"="
+	SubsetRange<subsetrange> (. production->subsetrange = subsetrange; .)
+)
+(. production->_line = curline; production->_col = curcol; .)
+.
+
+Element<ElementPtr& production> = 
+(. unsigned curline = la->line, curcol = la->col; .)
+(. FormatPtr format; .)
+(. SubsetPtr subset; .)
+(
+	(
+		Format<format> (. production = format; .)|
+		Subset<subset> (. production = subset; .)
+	)
 )
 (. production->_line = curline; production->_col = curcol; .)
 .

@@ -40,6 +40,12 @@ class CSourceBackend
 			convert_intrinsic_function(expr)
 		elsif expr[:ref] != nil
 			"pointer->#{expr[:ref]}"
+		elsif expr[:real] != nil
+			"#{expr[:real]}"
+		else
+			puts "The expression:"
+			p expr
+			raise "Expression unknown!"
 		end
 	end
 

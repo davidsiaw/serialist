@@ -1,12 +1,17 @@
 
 token "TypeIdentifier", :pascal_case
 token "MemberIdentifier", :camel_case
-token "NumberLit", :integer
+token "NumberLit", :number
+token "HexLit", :hex_integer
 token "CharLit", :char
 token "StringLit", :string
 
-grammar "IntegerLiteral" do
+grammar "NumberLiteral" do
 	one NumberLit
+end
+
+grammar "HexLiteral" do
+	one HexLit
 end
 
 grammar "MemberName" do
@@ -21,16 +26,31 @@ grammar "StringLiteral" do
 	one StringLit
 end
 
+grammar "ArrayLiteral" do
+	one "["
+	one Expression
+	maybemany group {
+		one ","
+		one Expression
+	}
+	one "]"
+end
+
 grammar "BracketedExpression" do
 	one "("
 	one Expression
 	one ")"
 end
 
+variation "SimpleLiteral", 
+			NumberLiteral, 
+			HexLiteral,
+			CharLiteral
+
 variation "Primary", 
-			IntegerLiteral, 
-			CharLiteral,
+			SimpleLiteral,
 			StringLiteral,
+			ArrayLiteral,
 			MemberName, 
 			BracketedExpression
 
@@ -78,14 +98,31 @@ grammar "Statement" do
 end
 
 grammar "Format" do
-
 	maybemany Attribute
 	one "format" 
 	one TypeIdentifier
 	one "{"
 	maybemany Statement
 	one "}"
-
 end
 
-maybemany Format
+grammar "SubsetRange" do
+	one SimpleLiteral
+	maybemany group {
+		one ","
+		one SimpleLiteral
+	}
+end
+
+grammar "Subset" do
+	one "subset"
+	one TypeIdentifier
+	one ":"
+	one TypeIdentifier
+	one "="
+	one SubsetRange
+end
+
+variation "Element", Format, Subset
+
+maybemany Element

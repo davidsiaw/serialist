@@ -16,6 +16,10 @@ def c_type(typename)
 		"uint32_t"
 	when "Uint64"
 		"uint64_t"
+	when "Float32"
+		"float"
+	when "Float64"
+		"double"
 	else
 		"#{typename}*"
 	end
@@ -38,6 +42,10 @@ def simple_type?(typename)
 	when "Uint32"
 		true
 	when "Uint64"
+		true
+	when "Float32"
+		true
+	when "Float64"
 		true
 	else
 		false

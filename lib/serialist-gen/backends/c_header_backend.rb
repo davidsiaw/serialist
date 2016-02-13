@@ -55,9 +55,12 @@ typedef struct #{format[:name]} #{format[:name]};
 	end
 
 	def generate
+
+		header_name = @name.upcase.gsub(/[^\w]+/, "_")
+
 		<<-CHEADEREND
-#ifndef #{@name.upcase}_H
-#define #{@name.upcase}_H
+#ifndef #{header_name}_H
+#define #{header_name}_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,7 +78,7 @@ typedef enum
 #{generate_structure_prototypes}
 #{generate_function_prototypes}
 
-#endif // #{@name.upcase}_H
+#endif // #{header_name}_H
 CHEADEREND
 	end
 end

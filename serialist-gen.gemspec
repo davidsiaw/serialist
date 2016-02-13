@@ -6,12 +6,12 @@ require 'serialist-gen/version'
 Gem::Specification.new do |spec|
   spec.name          = "serialist-gen"
   spec.version       = SerialistGen::VERSION
-  spec.authors       = ["David Siaw (via Travis CI)"]
-  spec.email         = ["david.siaw@mobingi.com"]
+  spec.authors       = ["David Siaw"]
+  spec.email         = ["davidsiaw@gmail.com"]
 
-  spec.summary       = %q{TODO: Write a short summary, because Rubygems requires one.}
-  spec.description   = %q{TODO: Write a longer description or delete this line.}
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.summary       = "Serialization Code Generator"
+  spec.description   = "Generates serialization code from a simple file format description"
+  spec.homepage      = "https://davidsiaw.github.io/serialist"
   spec.license       = "MIT"
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
