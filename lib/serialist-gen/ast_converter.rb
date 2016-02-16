@@ -122,7 +122,8 @@ module SerialistGen
 
 		def attribute_properties
 			{
-				"ArraySize" => {name: :array_size, limit: 1, params: 1}
+				"ArraySize" => {name: :array_size, limit: 1, params: 1},
+				"BigEndian" => {name: :big_endian, limit: 1, params: 0}
 			}
 		end
 
