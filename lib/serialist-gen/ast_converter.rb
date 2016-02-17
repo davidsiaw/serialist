@@ -54,6 +54,11 @@ module SerialistGen
 			expression
 		end
 
+		def function_invocation(funcname, params)
+			# TODO: perform typechecking
+			{call: funcname, params: params}
+		end
+
 		def convert_unary(expr)
 
 			x = convert_expression(expr[:primary])
@@ -61,11 +66,17 @@ module SerialistGen
 			for i in 0...expr[:invocations].length
 
 				if expr[:invocations][i][:_type] == "FunctionInvoke"
-					x = {call: x, params: expr[:invocations][i][:expressions].map {|param| convert_expression(param)} }
+
+					x = function_invocation x,  expr[:invocations][i][:expressions].map {|param| convert_expression(param)}
+
 				elsif expr[:invocations][i][:_type] == "RecordAccess"
-					x = {call: "accessmember", params: [ x, expr[:invocations][i][:membername][:_token] ] }
+
+					x = function_invocation "accessmember", [ x, expr[:invocations][i][:membername][:_token] ]
+
 				elsif expr[:invocations][i][:_type] == "ArrayIndex"
-					x = {call: "accessindex", params: [ x, convert_expression(expr[:invocations][i][:expression]) ] }
+
+					x = function_invocation "accessindex", [ x, convert_expression(expr[:invocations][i][:expression]) ]
+					
 				end
 			end
 

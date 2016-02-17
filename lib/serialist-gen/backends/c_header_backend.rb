@@ -61,6 +61,7 @@ typedef struct #{format[:name]} #{format[:name]};
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef enum
 {

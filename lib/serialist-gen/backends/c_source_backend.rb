@@ -23,6 +23,46 @@ class CSourceBackend
 			case func_name
 			when "add"
 				"(#{parmArray[0]} + #{parmArray[1]})"
+			when "sub"
+				"(#{parmArray[0]} - #{parmArray[1]})"
+			when "mul"
+				"(#{parmArray[0]} * #{parmArray[1]})"
+			when "div"
+				"(#{parmArray[0]} / #{parmArray[1]})"
+
+			when "and"
+				"(#{parmArray[0]} & #{parmArray[1]})"
+			when "or"
+				"(#{parmArray[0]} | #{parmArray[1]})"
+			when "xor"
+				"(#{parmArray[0]} ^ #{parmArray[1]})"
+
+			when "eq"
+				"(#{parmArray[0]} == #{parmArray[1]})"
+			when "neq"
+				"(#{parmArray[0]} != #{parmArray[1]})"
+
+			when "lt"
+				"(#{parmArray[0]} < #{parmArray[1]})"
+			when "lte"
+				"(#{parmArray[0]} <= #{parmArray[1]})"
+			when "gt"
+				"(#{parmArray[0]} > #{parmArray[1]})"
+			when "gte"
+				"(#{parmArray[0]} >= #{parmArray[1]})"
+
+			when "andb"
+				"(#{parmArray[0]} && #{parmArray[1]})"
+			when "orb"
+				"(#{parmArray[0]} || #{parmArray[1]})"
+
+			when "sl"
+				"(#{parmArray[0]} << #{parmArray[1]})"
+			when "sr"
+				"(#{parmArray[0]} >> #{parmArray[1]})"
+
+			when "if"
+				"(#{parmArray[0]} ? #{parmArray[1]} : #{parmArray[2]})"
 			else
 				"#{func_name}(#{parms})"
 			end
@@ -46,12 +86,37 @@ class CSourceBackend
 	def generate_member_readers(format,members)
 		members.map do |member|
 
+			reader = ""
+			reader_decls = ""
+
+			if simple_type? member[:type]
+				reader = <<-READER_CODE
+		amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
+		if (amt_read != 1)
+		{
+			return SERIALIST_UNEXPECTED_END_OF_FILE;
+		}
+				READER_CODE
+
+				reader_decls = <<-READER_DECLS
+	size_t amt_read = 0;
+				READER_DECLS
+			else
+				reader = <<-READER_CODE
+		error_code = Read#{member[:type]}(fp, &member);
+		if (error_code)
+		{
+			return error_code;
+		}
+				READER_CODE
+			end
+
 			if member[:attributes].has_key? :array_size
 				<<-MEMBERREAD
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
 	#{c_type(member[:type])} member;
-	size_t amt_read = 0;
+#{reader_decls}
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
@@ -63,11 +128,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 
 	for (index = 0; index < count; index++)
 	{
-		amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
-		if (amt_read != sizeof(#{c_type(member[:type])}))
-		{
-			return SERIALIST_UNEXPECTED_END_OF_FILE;
-		}
+#{reader}
 		error_code = Set#{format[:name]}_#{member[:name]}(pointer, member, index);
 		if (error_code)
 		{
@@ -83,11 +144,8 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
 	#{c_type(member[:type])} member;
-	size_t amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
-	if (amt_read != sizeof(#{c_type(member[:type])}))
-	{
-		return SERIALIST_UNEXPECTED_END_OF_FILE;
-	}
+#{reader_decls}
+#{reader}
 	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
 	if (error_code)
 	{
@@ -194,6 +252,11 @@ SerialistError Check#{format[:name]}_#{member[:name]}ArraySize(#{format[:name]}*
 		{
 			return SERIALIST_OUT_OF_MEMORY;
 		}
+		if (pointer->SIZEOF_#{member[:name]} < expected_size)
+		{
+			/* The array size increased. We need to zero out the new memory */
+			memset(&pointer->#{member[:name]}[pointer->SIZEOF_#{member[:name]}], 0, (expected_size - pointer->SIZEOF_#{member[:name]}) * sizeof(#{c_type(member[:type])}) ) ;
+		}
 		pointer->SIZEOF_#{member[:name]} = expected_size;
 	}
 	return SERIALIST_NO_ERROR;
@@ -292,7 +355,7 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 			<<-ENDSTRUCT
 SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
 {
-	#{format[:name]}* new_object = (#{format[:name]}*)malloc(sizeof(#{format[:name]}));
+	#{format[:name]}* new_object = (#{format[:name]}*)calloc(1, sizeof(#{format[:name]}));
 	if (new_object == NULL)
 	{
 		return SERIALIST_OUT_OF_MEMORY;
