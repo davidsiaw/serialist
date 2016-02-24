@@ -10,7 +10,7 @@ require "trollop"
 opts = Trollop::options do
 
 	backendList = SerialistGen::available_backends.map do |x|
-		"    #{x[/(.*)Backend/,1]} - #{SerialistGen::Backends.const_get(x).desc}\n" 
+		"        #{x[/(.*)Backend/,1]} - #{SerialistGen::Backends.const_get(x).desc}\n" 
 	end.join ""
 
 	banner <<-EOS
@@ -22,8 +22,8 @@ where [options] are:
 	opt :type, "Type of code to generate", type: :string, default: "Lowered"
 
 	banner <<-EOS
-Available backends:
-#{backendList}
+    Available backends:
+#{backendList} 
 	EOS
 
 end

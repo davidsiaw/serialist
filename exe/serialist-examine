@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+
+require "serialist-gen/serialist-gen"
+
+require "json"
+require "yaml"
+require "pp"
+require "trollop"
+
+format_file = ARGV.shift
+binary_file = ARGV.shift
+format_name = ARGV.shift
+
+opts = Trollop::options do
+
+	banner <<-EOS
+USAGE: serialist-examine <format file> <binary file> <format name> [options]
+
+where [options] are:
+	EOS
+end
+
+if !format_file
+	Trollop::die "Please specify a format file"
+end
+
+if !binary_file
+	Trollop::die "Please specify a binary file"
+end
+
+if !format_name
+	Trollop::die "Please specify a format name"
+end
+
+name = format_file.gsub(/\.format$/, "")
+
+source = `serialist-gen macho.format -t CJSONSource`
+source = <<-SOURCE
+
+#include <iostream>
+
+#{source}
+
+int main(int argc, char** argv)
+{
+	FILE* fp = fopen("#{binary_file}", "rb");
+
+	#{format_name}* pointer;
+	SerialistError err = Read#{format_name}(fp, &pointer);
+
+	if (err)
+	{
+		picojson::object obj;
+		obj[L"read_error"] = picojson::value((double)err);
+		picojson::value errval;
+		std::wcout << errval.serialize() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	std::wcout << JSONRead#{format_name}(pointer).serialize() << std::endl;
+	fclose(fp);
+	return EXIT_SUCCESS;
+}
+
+SOURCE
+
+File.write("main.cpp", source)
+
+source = `serialist-gen macho.format -t CSource`
+File.write("#{name}.c", source)
+
+source = `serialist-gen macho.format -t CHeader`
+File.write("#{name}.h", source)
+
+FileUtils.cp(File.join(Gem.datadir("serialist-gen"), "picojson.hpp"),"picojson.hpp")
+
+`gcc #{name}.c -c -o #{name}.o`
+`g++ main.cpp #{name}.o -o parse`
+
+#puts `./parse 2>&1`
+x = JSON.parse(`./parse`)
+
+puts x.to_yaml

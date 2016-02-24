@@ -11,7 +11,7 @@ format PMX
 }
 
 subset Boolean : Uint8 = 0,1
-subset ZeroToFour : Uint8 = 0..4
+subset ZeroToFour : Uint8 = 0,1,2,3,4
 subset OneTwoFour : Uint8 = 1,2,4
 subset Subset3 : Uint8 = 0,1,2,3,4
 
@@ -149,7 +149,7 @@ format WeightDeformInfo
 	QDEF qdef
 }
 
-format Vertex (Header header)
+format Vertex
 {
 	[Parameter]
 	Header header
@@ -202,7 +202,7 @@ format Text
 	Uint8 content
 }
 
-format Index (Uint8<1,2,4> indexSize)
+format Index
 {
 	[Parameter]
 	OneTwoFour indexSize

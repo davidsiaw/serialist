@@ -60,14 +60,14 @@ private:
 		_EOF=0,
 		_pascalcase=1,
 		_camelcase=2,
-		_integer=3,
+		_number=3,
 		_hexinteger=4,
 		_string=5,
 		_badString=6,
 		_char=7,
 		_endOfLine=8,
-		_ddtSym=19,
-		_optionSym=20
+		_ddtSym=21,
+		_optionSym=22
 	};
 	int maxT;
 
@@ -98,18 +98,22 @@ SerialistPtr serialist;
 	void SemErr(const wchar_t* msg);
 
 	void Serialist();
-	void Format(FormatPtr& production);
+	void Element(ElementPtr& production);
 	void TypeIdentifier(TypeIdentifierPtr& production);
 	void MemberIdentifier(MemberIdentifierPtr& production);
 	void NumberLit(NumberLitPtr& production);
+	void HexLit(HexLitPtr& production);
 	void CharLit(CharLitPtr& production);
 	void StringLit(StringLitPtr& production);
-	void IntegerLiteral(IntegerLiteralPtr& production);
+	void NumberLiteral(NumberLiteralPtr& production);
+	void HexLiteral(HexLiteralPtr& production);
 	void MemberName(MemberNamePtr& production);
 	void CharLiteral(CharLiteralPtr& production);
 	void StringLiteral(StringLiteralPtr& production);
-	void BracketedExpression(BracketedExpressionPtr& production);
+	void ArrayLiteral(ArrayLiteralPtr& production);
 	void Expression(ExpressionPtr& production);
+	void BracketedExpression(BracketedExpressionPtr& production);
+	void SimpleLiteral(SimpleLiteralPtr& production);
 	void Primary(PrimaryPtr& production);
 	void FunctionInvoke(FunctionInvokePtr& production);
 	void Invocation(InvocationPtr& production);
@@ -117,6 +121,9 @@ SerialistPtr serialist;
 	void AttributeParams(AttributeParamsPtr& production);
 	void Attribute(AttributePtr& production);
 	void Statement(StatementPtr& production);
+	void Format(FormatPtr& production);
+	void SubsetRange(SubsetRangePtr& production);
+	void Subset(SubsetPtr& production);
 
 	void Parse();
 

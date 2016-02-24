@@ -26,13 +26,17 @@ namespace Serialist
 	picojson::object CompileTypeIdentifier(TypeIdentifierPtr pointer);
 	picojson::object CompileMemberIdentifier(MemberIdentifierPtr pointer);
 	picojson::object CompileNumberLit(NumberLitPtr pointer);
+	picojson::object CompileHexLit(HexLitPtr pointer);
 	picojson::object CompileCharLit(CharLitPtr pointer);
 	picojson::object CompileStringLit(StringLitPtr pointer);
-	picojson::object CompileIntegerLiteral(IntegerLiteralPtr pointer);
+	picojson::object CompileNumberLiteral(NumberLiteralPtr pointer);
+	picojson::object CompileHexLiteral(HexLiteralPtr pointer);
 	picojson::object CompileMemberName(MemberNamePtr pointer);
 	picojson::object CompileCharLiteral(CharLiteralPtr pointer);
 	picojson::object CompileStringLiteral(StringLiteralPtr pointer);
+	picojson::object CompileArrayLiteral(ArrayLiteralPtr pointer);
 	picojson::object CompileBracketedExpression(BracketedExpressionPtr pointer);
+	picojson::object CompileSimpleLiteral(SimpleLiteralPtr pointer);
 	picojson::object CompilePrimary(PrimaryPtr pointer);
 	picojson::object CompileFunctionInvoke(FunctionInvokePtr pointer);
 	picojson::object CompileInvocation(InvocationPtr pointer);
@@ -42,6 +46,9 @@ namespace Serialist
 	picojson::object CompileAttribute(AttributePtr pointer);
 	picojson::object CompileStatement(StatementPtr pointer);
 	picojson::object CompileFormat(FormatPtr pointer);
+	picojson::object CompileSubsetRange(SubsetRangePtr pointer);
+	picojson::object CompileSubset(SubsetPtr pointer);
+	picojson::object CompileElement(ElementPtr pointer);
 
 	picojson::object CompileSerialist(SerialistPtr pointer)
 	{
@@ -55,14 +62,14 @@ namespace Serialist
 
 		// {:count=>3, :type=>:id}
 
-		picojson::array formats;
+		picojson::array elements;
 
-		for(unsigned i=0; i<pointer->formats.size(); i++)
+		for(unsigned i=0; i<pointer->elements.size(); i++)
 		{
-			formats.push_back(picojson::value(CompileFormat(pointer->formats[i])));
+			elements.push_back(picojson::value(CompileElement(pointer->elements[i])));
 		}
 
-		object[L"formats"] = picojson::value(formats);
+		object[L"elements"] = picojson::value(elements);
 
 
 
@@ -127,6 +134,25 @@ namespace Serialist
 		return object;
 	}
 
+	picojson::object CompileHexLit(HexLitPtr pointer)
+	{
+		picojson::object object;
+
+		// normal
+		object[L"_type"] = picojson::value(L"HexLit");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		
+
+		// {:count=>1, :type=>:token}
+		object[L"_token"] = picojson::value(pointer->content);
+
+
+
+
+		return object;
+	}
+
 	picojson::object CompileCharLit(CharLitPtr pointer)
 	{
 		picojson::object object;
@@ -165,12 +191,12 @@ namespace Serialist
 		return object;
 	}
 
-	picojson::object CompileIntegerLiteral(IntegerLiteralPtr pointer)
+	picojson::object CompileNumberLiteral(NumberLiteralPtr pointer)
 	{
 		picojson::object object;
 
 		// normal
-		object[L"_type"] = picojson::value(L"IntegerLiteral");
+		object[L"_type"] = picojson::value(L"NumberLiteral");
 		object[L"_col"] = picojson::value((double)pointer->_col);
 		object[L"_line"] = picojson::value((double)pointer->_line);
 		
@@ -183,6 +209,32 @@ namespace Serialist
 			numberlit = CompileNumberLit(pointer->numberlit);
 
 			object[L"numberlit"] = picojson::value(numberlit);
+		}
+
+
+
+
+		return object;
+	}
+
+	picojson::object CompileHexLiteral(HexLiteralPtr pointer)
+	{
+		picojson::object object;
+
+		// normal
+		object[L"_type"] = picojson::value(L"HexLiteral");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		
+
+		// {:count=>1, :type=>:id}
+		if (pointer->hexlit)
+		{
+			picojson::object hexlit;
+
+			hexlit = CompileHexLit(pointer->hexlit);
+
+			object[L"hexlit"] = picojson::value(hexlit);
 		}
 
 
@@ -269,6 +321,33 @@ namespace Serialist
 		return object;
 	}
 
+	picojson::object CompileArrayLiteral(ArrayLiteralPtr pointer)
+	{
+		picojson::object object;
+
+		// normal
+		object[L"_type"] = picojson::value(L"ArrayLiteral");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		
+
+		// {:count=>3, :type=>:id}
+
+		picojson::array expressions;
+
+		for(unsigned i=0; i<pointer->expressions.size(); i++)
+		{
+			expressions.push_back(picojson::value(CompileExpression(pointer->expressions[i])));
+		}
+
+		object[L"expressions"] = picojson::value(expressions);
+
+
+
+
+		return object;
+	}
+
 	picojson::object CompileBracketedExpression(BracketedExpressionPtr pointer)
 	{
 		picojson::object object;
@@ -295,6 +374,40 @@ namespace Serialist
 		return object;
 	}
 
+	picojson::object CompileSimpleLiteral(SimpleLiteralPtr pointer)
+	{
+		picojson::object object;
+
+		// variation
+		object[L"_type"] = picojson::value(L"SimpleLiteral");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		picojson::object content;
+		switch(pointer->get_simpleliteral_type())
+		{
+			case NUMBERLITERAL_SIMPLELITERAL:
+			{
+				content = CompileNumberLiteral(std::dynamic_pointer_cast<NumberLiteral>(pointer));
+				break;
+			}
+			case HEXLITERAL_SIMPLELITERAL:
+			{
+				content = CompileHexLiteral(std::dynamic_pointer_cast<HexLiteral>(pointer));
+				break;
+			}
+			case CHARLITERAL_SIMPLELITERAL:
+			{
+				content = CompileCharLiteral(std::dynamic_pointer_cast<CharLiteral>(pointer));
+				break;
+			}
+
+		}
+
+		object[L"_content"] = picojson::value(content);
+
+		return object;
+	}
+
 	picojson::object CompilePrimary(PrimaryPtr pointer)
 	{
 		picojson::object object;
@@ -306,19 +419,19 @@ namespace Serialist
 		picojson::object content;
 		switch(pointer->get_primary_type())
 		{
-			case INTEGERLITERAL_PRIMARY:
+			case SIMPLELITERAL_PRIMARY:
 			{
-				content = CompileIntegerLiteral(std::dynamic_pointer_cast<IntegerLiteral>(pointer));
-				break;
-			}
-			case CHARLITERAL_PRIMARY:
-			{
-				content = CompileCharLiteral(std::dynamic_pointer_cast<CharLiteral>(pointer));
+				content = CompileSimpleLiteral(std::dynamic_pointer_cast<SimpleLiteral>(pointer));
 				break;
 			}
 			case STRINGLITERAL_PRIMARY:
 			{
 				content = CompileStringLiteral(std::dynamic_pointer_cast<StringLiteral>(pointer));
+				break;
+			}
+			case ARRAYLITERAL_PRIMARY:
+			{
+				content = CompileArrayLiteral(std::dynamic_pointer_cast<ArrayLiteral>(pointer));
 				break;
 			}
 			case MEMBERNAME_PRIMARY:
@@ -602,6 +715,98 @@ namespace Serialist
 
 
 
+
+		return object;
+	}
+
+	picojson::object CompileSubsetRange(SubsetRangePtr pointer)
+	{
+		picojson::object object;
+
+		// normal
+		object[L"_type"] = picojson::value(L"SubsetRange");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		
+
+		// {:count=>3, :type=>:id}
+
+		picojson::array simpleliterals;
+
+		for(unsigned i=0; i<pointer->simpleliterals.size(); i++)
+		{
+			simpleliterals.push_back(picojson::value(CompileSimpleLiteral(pointer->simpleliterals[i])));
+		}
+
+		object[L"simpleliterals"] = picojson::value(simpleliterals);
+
+
+
+
+		return object;
+	}
+
+	picojson::object CompileSubset(SubsetPtr pointer)
+	{
+		picojson::object object;
+
+		// normal
+		object[L"_type"] = picojson::value(L"Subset");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		
+
+		// {:count=>2, :type=>:id}
+
+		picojson::array typeidentifiers;
+
+		for(unsigned i=0; i<pointer->typeidentifiers.size(); i++)
+		{
+			typeidentifiers.push_back(picojson::value(CompileTypeIdentifier(pointer->typeidentifiers[i])));
+		}
+
+		object[L"typeidentifiers"] = picojson::value(typeidentifiers);
+		// {:count=>1, :type=>:id}
+		if (pointer->subsetrange)
+		{
+			picojson::object subsetrange;
+
+			subsetrange = CompileSubsetRange(pointer->subsetrange);
+
+			object[L"subsetrange"] = picojson::value(subsetrange);
+		}
+
+
+
+
+		return object;
+	}
+
+	picojson::object CompileElement(ElementPtr pointer)
+	{
+		picojson::object object;
+
+		// variation
+		object[L"_type"] = picojson::value(L"Element");
+		object[L"_col"] = picojson::value((double)pointer->_col);
+		object[L"_line"] = picojson::value((double)pointer->_line);
+		picojson::object content;
+		switch(pointer->get_element_type())
+		{
+			case FORMAT_ELEMENT:
+			{
+				content = CompileFormat(std::dynamic_pointer_cast<Format>(pointer));
+				break;
+			}
+			case SUBSET_ELEMENT:
+			{
+				content = CompileSubset(std::dynamic_pointer_cast<Subset>(pointer));
+				break;
+			}
+
+		}
+
+		object[L"_content"] = picojson::value(content);
 
 		return object;
 	}

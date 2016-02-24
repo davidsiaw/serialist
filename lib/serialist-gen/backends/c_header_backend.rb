@@ -46,6 +46,12 @@ SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp);
 		end.join "\n"
 	end
 
+	def generate_type_enums
+		@ast[:formats].map do |format|
+			"\t#{format[:name].upcase}_TYPE"
+		end.join ",\n"
+	end
+
 	def generate_structure_prototypes
 		@ast[:formats].map do |format|
 			<<-ENDSTRUCT
@@ -55,9 +61,17 @@ typedef struct #{format[:name]} #{format[:name]};
 	end
 
 	def generate
+
+		header_name = @name.upcase.gsub(/[^\w]+/, "_")
+
 		<<-CHEADEREND
-#ifndef #{@name.upcase}_H
-#define #{@name.upcase}_H
+#ifndef #{header_name}_H
+#define #{header_name}_H
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,13 +84,24 @@ typedef enum
 	SERIALIST_INDEX_OUT_OF_BOUNDS	 = 2,
 	SERIALIST_UNEXPECTED_END_OF_FILE = 3,
 	SERIALIST_NULL_POINTER			 = 4,
-	SERIALIST_WRITE_FAILED			 = 5
+	SERIALIST_WRITE_FAILED			 = 5,
+	SERIALIST_POINTER_IS_WRONG_TYPE  = 6,
+	SERIALIST_NULL_FILE_POINTER		 = 7
 } SerialistError;
+
+typedef enum
+{
+#{generate_type_enums}
+} #{@name.capitalize}Types;
 
 #{generate_structure_prototypes}
 #{generate_function_prototypes}
 
-#endif // #{@name.upcase}_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif // #{header_name}_H
 CHEADEREND
 	end
 end

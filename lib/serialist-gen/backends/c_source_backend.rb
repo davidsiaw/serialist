@@ -80,6 +80,12 @@ class CSourceBackend
 			convert_intrinsic_function(expr)
 		elsif expr[:ref] != nil
 			"pointer->#{expr[:ref]}"
+		elsif expr[:real] != nil
+			"#{expr[:real]}"
+		else
+			puts "The expression:"
+			p expr
+			raise "Expression unknown!"
 		end
 	end
 
@@ -120,6 +126,12 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
 	error_code = Count#{format[:name]}_#{member[:name]}(pointer, &count);
 	if (error_code)
 	{
@@ -143,6 +155,12 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
 	#{c_type(member[:type])} member;
 #{reader_decls}
 #{reader}
@@ -187,6 +205,12 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
 	error_code = Count#{format[:name]}_#{member[:name]}(pointer, &count);
 	size_t amt_written = 0;
 
@@ -211,7 +235,14 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
 {
 	#{c_type(member[:type])} item;
-	SerialistError error_code = Get#{format[:name]}_#{member[:name]}(pointer, &item);
+	SerialistError error_code = SERIALIST_NO_ERROR;
+
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
+	error_code = Get#{format[:name]}_#{member[:name]}(pointer, &item);
 	size_t amt_written = 0;
 	if (error_code)
 	{
@@ -364,6 +395,7 @@ SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
 	{
 		return SERIALIST_NULL_POINTER;
 	}
+	new_object->TYPE_signature = #{format[:name].upcase}_TYPE;
 	*out_pointer = new_object;
 	return SERIALIST_NO_ERROR;
 }
@@ -374,6 +406,12 @@ SerialistError Delete#{format[:name]} (#{format[:name]}* pointer)
 	{
 		return SERIALIST_NULL_POINTER;
 	}
+
+	if (!IsPointerOfType(pointer, #{format[:name].upcase}_TYPE))
+	{
+		return SERIALIST_POINTER_IS_WRONG_TYPE;
+	}
+
 	free(pointer);
 	return SERIALIST_NO_ERROR;
 }
@@ -385,10 +423,16 @@ SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer)
 	SerialistError error_code = SERIALIST_NO_ERROR;
 	#{format[:name]}* pointer;
 
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
 	if (out_pointer == NULL)
 	{
 		return SERIALIST_NULL_POINTER;
 	}
+
 	error_code = Create#{format[:name]}(&pointer);
 	if (error_code) { goto error; }
 #{generate_member_read_calls(format, format[:members])}
@@ -403,6 +447,17 @@ error:
 SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp)
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+	if (fp == NULL)
+	{
+		return SERIALIST_NULL_FILE_POINTER;
+	}
+
+	if (!IsPointerOfType(pointer, #{format[:name].upcase}_TYPE))
+	{
+		return SERIALIST_POINTER_IS_WRONG_TYPE;
+	}
+
 #{generate_member_write_calls(format, format[:members])}
 
 error:
@@ -436,6 +491,7 @@ error:
 			<<-ENDSTRUCT
 struct #{format[:name]}
 {
+	#{@name.capitalize}Types TYPE_signature;
 #{generate_structure_members(format)}
 };
 			ENDSTRUCT
@@ -446,6 +502,15 @@ struct #{format[:name]}
 
 		<<-CHEADEREND
 #include "#{@name.downcase}.h"
+
+static int IsPointerOfType(void* pointer, #{@name.capitalize}Types type)
+{
+	if( *(#{@name.capitalize}Types*)pointer == type )
+	{
+		return 1;
+	}
+	return 0;
+}
 
 #{generate_structures}
 #{generate_functions}

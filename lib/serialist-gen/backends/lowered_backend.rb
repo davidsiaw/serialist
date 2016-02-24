@@ -22,17 +22,41 @@ class LoweredBackend
 		end
 	end
 
-	def gen_expression(expr)
+	def gen_lowered_expression(expr)
 		if expr[:int] != nil
-			"#{expr[:int]}"
-		elsif expr[:char] != nil
-			"'#{expr[:char]}'"
+			"0x#{expr[:int].to_s(16)}"
 		elsif expr[:call] != nil
 			parms = expr[:params].map{|param| gen_expression(param)}.join(", ")
 			"#{gen_expression(expr[:call])}(#{parms})"
 		elsif expr[:ref] != nil
 			"#{expr[:ref]}"
+		elsif expr[:real] != nil
+			"#{expr[:real]}"
+		else
+			puts "The expression:"
+			p expr
+			raise "Expression unknown!"
 		end
+	end
+
+	def gen_extra_expression_info_comment(expr)
+		if expr[:char] != nil
+			"'#{expr[:char]}'"
+		else
+			nil
+		end
+	end
+
+	def gen_expression(expr)
+
+		extra = gen_extra_expression_info_comment(expr)
+
+		if extra
+			"#{gen_lowered_expression(expr)} /* #{extra} */"
+		else
+			"#{gen_lowered_expression(expr)}"
+		end
+		
 	end
 
 	def gen_attribute(name, value)
@@ -65,9 +89,18 @@ class LoweredBackend
 			<<-MEMBEREND
 #{gen_attributes(member)}
 	#{member[:type]} #{member[:name]}
-			MEMBEREND
+MEMBEREND
 		end.join ""
 
+	end
+
+	def gen_subsets
+		@ast[:subsets].map do |subset|
+			<<-SUBSETEND
+subset #{subset[:name]} : #{subset[:origin_type]} = #{subset[:elements].map {|x| gen_expression(x)}.join "," }
+
+			SUBSETEND
+		end.join ""
 	end
 
 	def gen_formats
@@ -77,12 +110,14 @@ format #{format[:name]}
 {
 #{gen_members(format[:members])}
 }
+
 			FORMATEND
 		end.join ""
 	end
 
 	def generate
 		<<-ECHOEND
+#{gen_subsets}
 #{gen_formats}
 ECHOEND
 	end
