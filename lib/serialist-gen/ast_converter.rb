@@ -62,6 +62,11 @@ module SerialistGen
 			expression
 		end
 
+		def intrinsic_function_invocation(funcname, params)
+			inv = {ref: "#{funcname}"}
+			function_invocation inv, params
+		end
+
 		def function_invocation(funcname, params)
 			# TODO: perform typechecking
 			{call: funcname, params: params}
@@ -78,12 +83,12 @@ module SerialistGen
 					x = function_invocation x,  expr[:invocations][i][:expressions].map {|param| convert_expression(param)}
 
 				elsif expr[:invocations][i][:_type] == "RecordAccess"
-					
-					x = function_invocation "acc", [ x, expr[:invocations][i][:membername][:_token] ]
+
+					x = intrinsic_function_invocation "acc", [ x, expr[:invocations][i][:membername][:_token] ]
 
 				elsif expr[:invocations][i][:_type] == "ArrayIndex"
 
-					x = function_invocation "get", [ x, convert_expression(expr[:invocations][i][:expression]) ]
+					x = intrinsic_function_invocation "get", [ x, convert_expression(expr[:invocations][i][:expression]) ]
 					
 				end
 			end
@@ -109,6 +114,8 @@ module SerialistGen
 				end
 			when "CharLit"
 				result = {int: convert_char(expr).ord, char: convert_char(expr)}
+			when "ArrayLiteral"
+				result = intrinsic_function_invocation "arr", expr[:expressions].map{ |x| convert_expression(x) }
 			when "StringLit"
 				raise "StringLit conversion not implemented yet"
 			when "Unary"
@@ -134,7 +141,9 @@ module SerialistGen
 		def attribute_properties
 			{
 				"ArraySize" => {name: :array_size, limit: 1, params: 1},
-				"BigEndian" => {name: :big_endian, limit: 1, params: 0}
+				"Mustcontain" => {name: :must_contain, limit: 1, params: 1},
+				"BigEndian" => {name: :big_endian, limit: 1, params: 0},
+				"LittleEndian" => {name: :little_endian, limit: 1, params: 0}
 			}
 		end
 

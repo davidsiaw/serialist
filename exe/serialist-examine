@@ -7,9 +7,8 @@ require "yaml"
 require "pp"
 require "trollop"
 
-format_file = ARGV.shift
-binary_file = ARGV.shift
-format_name = ARGV.shift
+
+intermediate_dir = File.expand_path "~/.serialist-tmp"
 
 opts = Trollop::options do
 
@@ -19,6 +18,10 @@ USAGE: serialist-examine <format file> <binary file> <format name> [options]
 where [options] are:
 	EOS
 end
+
+format_file = ARGV.shift
+binary_file = ARGV.shift
+format_name = ARGV.shift
 
 if !format_file
 	Trollop::die "Please specify a format file"
@@ -32,9 +35,9 @@ if !format_name
 	Trollop::die "Please specify a format name"
 end
 
-name = format_file.gsub(/\.format$/, "")
+name = File.basename(format_file).gsub(/\.format$/, "")
 
-source = `serialist-gen macho.format -t CJSONSource`
+source = `serialist-gen #{format_file} -t CJSONSource`
 source = <<-SOURCE
 
 #include <iostream>
@@ -51,8 +54,8 @@ int main(int argc, char** argv)
 	if (err)
 	{
 		picojson::object obj;
-		obj[L"read_error"] = picojson::value((double)err);
-		picojson::value errval;
+		obj[L"read_error"] = picojson::value(SerialistErrorWString(err));
+		picojson::value errval(obj);
 		std::wcout << errval.serialize() << std::endl;
 		return EXIT_FAILURE;
 	}
@@ -64,20 +67,31 @@ int main(int argc, char** argv)
 
 SOURCE
 
-File.write("main.cpp", source)
+puts "Using intermediate directory: #{File.join(intermediate_dir)}"
 
-source = `serialist-gen macho.format -t CSource`
-File.write("#{name}.c", source)
+FileUtils.mkdir_p File.join(intermediate_dir)
 
-source = `serialist-gen macho.format -t CHeader`
-File.write("#{name}.h", source)
+File.write(File.join(intermediate_dir, "main.cpp"), source)
 
-FileUtils.cp(File.join(Gem.datadir("serialist-gen"), "picojson.hpp"),"picojson.hpp")
+c_source = `serialist-gen #{format_file} -t CSource`
+File.write(File.join(intermediate_dir, "#{name}.c"), c_source)
 
-`gcc #{name}.c -c -o #{name}.o`
-`g++ main.cpp #{name}.o -o parse`
+h_source = `serialist-gen #{format_file} -t CHeader`
+File.write(File.join(intermediate_dir, "#{name}.h"), h_source)
 
-#puts `./parse 2>&1`
-x = JSON.parse(`./parse`)
+FileUtils.cp(File.join(Gem.datadir("serialist-gen"), "picojson.hpp"), File.join(intermediate_dir, "picojson.hpp"))
 
-puts x.to_yaml
+`cd #{intermediate_dir} && gcc #{File.join(intermediate_dir, name)}.c -c -o #{File.join(intermediate_dir, name)}.o`
+`cd #{intermediate_dir} && g++ #{File.join(intermediate_dir, "main.cpp")} #{File.join(intermediate_dir, name)}.o -o #{File.join(intermediate_dir, "parse")}`
+
+
+output = `#{File.join(intermediate_dir, "parse")}`
+begin
+	x = JSON.parse(output)
+	puts x.to_yaml
+rescue
+	puts "Unhandled Error. Output:"
+	puts output
+end
+
+

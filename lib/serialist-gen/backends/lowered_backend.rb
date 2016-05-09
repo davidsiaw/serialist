@@ -17,6 +17,8 @@ class LoweredBackend
 		case name
 		when :array_size
 			"ArraySize"
+		when :must_contain
+			"MustContain"
 		else
 			name
 		end
@@ -48,7 +50,6 @@ class LoweredBackend
 	end
 
 	def gen_expression(expr)
-
 		extra = gen_extra_expression_info_comment(expr)
 
 		if extra

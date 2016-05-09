@@ -63,6 +63,10 @@ class CSourceBackend
 
 			when "if"
 				"(#{parmArray[0]} ? #{parmArray[1]} : #{parmArray[2]})"
+
+			when "arr"
+				"(0 /* create_array(#{parmArray.map{|x| "#{x}"}.join(", ")}) */)"
+
 			else
 				"#{func_name}(#{parms})"
 			end
@@ -89,19 +93,75 @@ class CSourceBackend
 		end
 	end
 
+	def generate_endian_conversion_code(member)
+
+		endian_decls = ""
+		endian_code = ""
+
+		if member[:attributes].has_key? :big_endian
+
+			length = type_length(member[:type])
+
+			endian_decls = <<-ENDIANDECLS
+	#{c_type(member[:type])} #{(0...length).map{|x| "b#{x}"}.join(",")};
+			ENDIANDECLS
+
+			case length
+			when 2
+				endian_code = <<-ENDIANCODE
+	b0 = (member & 0x00ff) << 8u;
+	b1 = (member & 0xff00) >> 8u;
+	member = b0 | b1;
+				ENDIANCODE
+			when 4
+				endian_code = <<-ENDIANCODE
+	b0 = (member & 0x000000ff) << 24u;
+	b1 = (member & 0x0000ff00) << 8u;
+	b2 = (member & 0x00ff0000) >> 8u;
+	b3 = (member & 0xff000000) >> 24u;
+	member = b0 | b1 | b2 | b3;
+				ENDIANCODE
+			when 8
+				endian_code = <<-ENDIANCODE
+	b0 = (member & 0x00000000000000ff) << 56ul;
+	b1 = (member & 0x000000000000ff00) << 40ul;
+	b2 = (member & 0x0000000000ff0000) << 24ul;
+	b3 = (member & 0x00000000ff000000) << 8ul;
+	b4 = (member & 0x000000ff00000000) >> 8ul;
+	b5 = (member & 0x0000ff0000000000) >> 24ul;
+	b6 = (member & 0x00ff000000000000) >> 40ul;
+	b7 = (member & 0xff00000000000000) >> 56ul;
+	member = b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7;
+				ENDIANCODE
+			when 0
+				raise "Not simple type but trying to write endian code"
+			end
+		end
+
+		{decls: endian_decls, code: endian_code}
+	end
+
 	def generate_member_readers(format,members)
 		members.map do |member|
 
 			reader = ""
 			reader_decls = ""
+			endian_decls = ""
 
 			if simple_type? member[:type]
+
+				endian_conv_code = generate_endian_conversion_code(member)
+
+				endian_code = endian_conv_code[:code]
+				endian_decls = endian_conv_code[:decls]
+
 				reader = <<-READER_CODE
-		amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
-		if (amt_read != 1)
-		{
-			return SERIALIST_UNEXPECTED_END_OF_FILE;
-		}
+	amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
+#{endian_code}
+	if (amt_read != 1)
+	{
+		return SERIALIST_UNEXPECTED_END_OF_FILE;
+	}
 				READER_CODE
 
 				reader_decls = <<-READER_DECLS
@@ -109,11 +169,11 @@ class CSourceBackend
 				READER_DECLS
 			else
 				reader = <<-READER_CODE
-		error_code = Read#{member[:type]}(fp, &member);
-		if (error_code)
-		{
-			return error_code;
-		}
+	error_code = Read#{member[:type]}(fp, &member);
+	if (error_code)
+	{
+		return error_code;
+	}
 				READER_CODE
 			end
 
@@ -123,6 +183,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 {
 	#{c_type(member[:type])} member;
 #{reader_decls}
+#{endian_decls}
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
@@ -130,6 +191,10 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	if (fp == NULL)
 	{
 		return SERIALIST_NULL_FILE_POINTER;
+	}
+	if (pointer == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
 	}
 
 	error_code = Count#{format[:name]}_#{member[:name]}(pointer, &count);
@@ -160,9 +225,14 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	{
 		return SERIALIST_NULL_FILE_POINTER;
 	}
+	if (pointer == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
 
 	#{c_type(member[:type])} member;
 #{reader_decls}
+#{endian_decls}
 #{reader}
 	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
 	if (error_code)
@@ -210,6 +280,10 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	{
 		return SERIALIST_NULL_FILE_POINTER;
 	}
+	if (pointer == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
 
 	error_code = Count#{format[:name]}_#{member[:name]}(pointer, &count);
 	size_t amt_written = 0;
@@ -240,6 +314,10 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	if (fp == NULL)
 	{
 		return SERIALIST_NULL_FILE_POINTER;
+	}
+	if (pointer == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
 	}
 
 	error_code = Get#{format[:name]}_#{member[:name]}(pointer, &item);
@@ -500,16 +578,53 @@ struct #{format[:name]}
 
 	def generate
 
+		error_list = ""
+		werror_list = ""
+
+		for i in 0...error_types.length
+			line = <<-LINE
+		case #{error_types[i]}:
+			return "#{error_types[i]}";
+			LINE
+			error_list << line
+			werror_list << line.sub(' "', ' L"')
+
+		end
+
 		<<-CHEADEREND
 #include "#{@name.downcase}.h"
 
 static int IsPointerOfType(void* pointer, #{@name.capitalize}Types type)
 {
+	if (pointer == NULL)
+	{
+		return 0;
+	}
 	if( *(#{@name.capitalize}Types*)pointer == type )
 	{
 		return 1;
 	}
 	return 0;
+}
+
+const char* SerialistErrorString(SerialistError err)
+{
+	switch(err)
+	{
+#{error_list}
+	}
+
+	return "SERIALIST_UNKNOWN_ERROR";
+}
+
+const wchar_t* SerialistErrorWString(SerialistError err)
+{
+	switch(err)
+	{
+#{werror_list}
+	}
+
+	return L"SERIALIST_UNKNOWN_ERROR";
 }
 
 #{generate_structures}

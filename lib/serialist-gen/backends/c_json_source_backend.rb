@@ -1,6 +1,8 @@
 module SerialistGen
 module Backends
 
+require 'tsort'
+
 class CJSONSourceBackend
 
 	require "serialist-gen/backends/c_utils/c_utils"
@@ -94,9 +96,34 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 		end.join("")
 	end
 
+	class TsortableHash < Hash
+		include TSort
+
+		alias tsort_each_node each_key
+		def tsort_each_child(node, &block)
+			fetch(node).each(&block)
+		end
+	end
+
 	def generate
 
-		formats = @ast[:formats].map do |format|
+		dependency_hash = TsortableHash.new
+		format_hash = {}
+
+		@ast[:formats].each do |format|
+			used_types = []
+
+			format[:members].each do |member|
+				used_types << member[:type] if !simple_type?(member[:type])
+			end
+
+			dependency_hash[format[:name]] = used_types
+			format_hash[format[:name]] = format
+		end
+
+		order = dependency_hash.tsort
+
+		formats = order.map {|format_name| format_hash[format_name]}.map do |format|
 
 			members = format[:members].map do |member|
 				<<-ENDMEMBERPROTO

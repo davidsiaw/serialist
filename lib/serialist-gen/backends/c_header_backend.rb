@@ -64,6 +64,16 @@ typedef struct #{format[:name]} #{format[:name]};
 
 		header_name = @name.upcase.gsub(/[^\w]+/, "_")
 
+		error_list = ""
+
+		for i in 0...error_types.length
+			comma = "," if i < error_types.length-1
+			line = <<-LINE
+	#{error_types[i]} = #{i}#{comma}
+			LINE
+			error_list << line
+		end
+
 		<<-CHEADEREND
 #ifndef #{header_name}_H
 #define #{header_name}_H
@@ -77,22 +87,21 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 
+#define SERIALIST_LITTLE_ENDIAN 0
+#define SERIALIST_BIG_ENDIAN 1
+
 typedef enum
 {
-	SERIALIST_NO_ERROR				 = 0,
-	SERIALIST_OUT_OF_MEMORY			 = 1,
-	SERIALIST_INDEX_OUT_OF_BOUNDS	 = 2,
-	SERIALIST_UNEXPECTED_END_OF_FILE = 3,
-	SERIALIST_NULL_POINTER			 = 4,
-	SERIALIST_WRITE_FAILED			 = 5,
-	SERIALIST_POINTER_IS_WRONG_TYPE  = 6,
-	SERIALIST_NULL_FILE_POINTER		 = 7
+#{error_list}
 } SerialistError;
 
 typedef enum
 {
 #{generate_type_enums}
 } #{@name.capitalize}Types;
+
+const char* SerialistErrorString(SerialistError err);
+const wchar_t* SerialistErrorWString(SerialistError err);
 
 #{generate_structure_prototypes}
 #{generate_function_prototypes}
