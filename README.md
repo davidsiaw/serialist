@@ -1,24 +1,29 @@
 serialist
 =========
 
-Program to generate C/C++ code for reading binary files described with a simple file format description language.
+Program to generate C/C++ code for reading binary files described with a simple easy-to-read file format description language.
 
 [![Build Status](https://travis-ci.org/davidsiaw/serialist.svg)](https://travis-ci.org/davidsiaw/serialist)
 [![Stories in Ready](https://badge.waffle.io/davidsiaw/serialist.svg?label=ready&title=Ready)](http://waffle.io/davidsiaw/serialist)
 [![License](http://img.shields.io/badge/license-GPLv3-red.svg)](https://github.com/davidsiaw/serialist/blob/master/LICENSE)
 
-
-
 -----------------------
 a little documentation
 =======================
 
+how to install
+--------------
+
+```
+gem install serialist-gem
+```
+
 how to build
 ------------
 
-To build serialist you can either 
-- use serialist.sln in MSVC 
-- or with Cygwin/Linux/Mac use autoreconf --install && ./configure && make
+```
+sh build.sh
+```
 
 how to use
 ----------
@@ -30,45 +35,48 @@ STEP 1, Make a file format:
 
 numberlist.format
 
-    format numberlist
+    format NumberList
     {
-      uint32 numberOfNumbers
-      uint32[numberOfNumbers] numbers
+      Uint32 numberOfNumbers
+
+      [ArraySize: numberOfNumbers]
+      Uint32 numbers
     }
 
 
 STEP 2, Generate .h and .c files:
 
     # Generate header file 
-    ./serialist h numberlist.format > numberlist.h
+    serialist-gen -t CHeader numberlist.format > numberlist.h
     # Generate source file
-    ./serialist c numberlist.format > numberlist.c
+    serialist-gen -t CSource numberlist.format > numberlist.c
 
 STEP 3, Use in your C/C++ application:
 
-    #include <iostream>
+    #include <stdio.h>
     #include "numberlist.h"
     int main()
     {
-      FILE* fp = fopen("mynumbers.numbers", "r");
-      numberlist* list;
-      read_numberlist(fp, &list);
-      for (int i=0;i<list->numberOfNumbers; i++)
-      {
-        std::cout << list->numbers[i] << std::endl;
-      }
+      // To read an existing file
+      NumberList* list_from_file;
+
+      FILE* fp_read = fopen("mynumbers.numbers", "rb");
+      SerialistError err = ReadNumberList(fp_read, &list_from_file);
+      fclose(fp_read);
+
+
+      // To create and write
+      NumberList* new_list;
+      err = CreateNumberList(&new_list);
+
+      FILE* fp_write = fopen("newnumbers.numbers", "wb");
+      err = WriteSimple(fp_write, new_list);
+      fclose(fp_write);
+
       return 0;
     }
 
 TODO: more detailed
-
---------------
-included files
-==============
-
-- serialist.sln - for MSVC 2010
-- serialist.workspace - for Notepad++
-- autoconf scripts - for building with Cygwin, Linux or OS X
 
 ----------
 motivation
