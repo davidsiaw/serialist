@@ -15,7 +15,7 @@ how to install
 --------------
 
 ```
-gem install serialist-gem
+gem install serialist-gen
 ```
 
 how to build
