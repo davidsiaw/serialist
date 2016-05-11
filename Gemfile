@@ -6,5 +6,5 @@ gemspec
 if ENV['RUCO_PATH']
 	gem "ruco-cpp", path: ENV['RUCO_PATH']
 else
-	gem "ruco-cpp"
+	gem "ruco-cpp", "~> 0.2.8"
 end
