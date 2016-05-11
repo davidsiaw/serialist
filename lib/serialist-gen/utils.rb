@@ -34,5 +34,9 @@ def simple_type?(typename, subsets={})
 	end
 end
 
+def is_subset?(typename, subsets={})
+	subsets[typename] != nil
+end
+
 end
 end

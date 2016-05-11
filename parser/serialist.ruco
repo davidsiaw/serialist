@@ -51,8 +51,9 @@ variation "Primary",
 			SimpleLiteral,
 			StringLiteral,
 			ArrayLiteral,
-			MemberName, 
+			MemberName,
 			BracketedExpression
+			
 
 grammar "FunctionInvoke" do
 	one "("

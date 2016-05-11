@@ -59,6 +59,14 @@ class CSourceBackend < CUtils::CBackendBase
 
 			when "if"
 				"(#{parmArray[0]} ? #{parmArray[1]} : #{parmArray[2]})"
+			when "acc"
+				name = parmArray[0]
+				member_name = parmArray[1].sub("pointer->", "")
+				"#{name}->#{member_name}"
+			when "get"
+				name = parmArray[0]
+				index = parmArray[1]
+				"#{name}[#{index}]"
 
 			when "arr"
 				"(0 /* create_array(#{parmArray.map{|x| "#{x}"}.join(", ")}) */)"
@@ -144,64 +152,76 @@ class CSourceBackend < CUtils::CBackendBase
 			reader_decls = ""
 			endian_decls = ""
 
-			if simple_type? member[:type]
+			if member[:attributes].has_key? :is_parameter
+				""
+			else
 
-				endian_conv_code = generate_endian_conversion_code(member)
+				if simple_type? member[:type]
 
-				endian_code = endian_conv_code[:code]
-				endian_decls = endian_conv_code[:decls]
+					endian_conv_code = generate_endian_conversion_code(member)
 
-				reader = <<-READER_CODE
+					endian_code = endian_conv_code[:code]
+					endian_decls = endian_conv_code[:decls]
+
+					reader = <<-READER_CODE
 	amt_read = fread(&member, sizeof(#{c_type(member[:type])}), 1, fp);
 #{endian_code}
 	if (amt_read != 1)
 	{
 		return SERIALIST_UNEXPECTED_END_OF_FILE;
 	}
-				READER_CODE
+					READER_CODE
 
-				reader_decls = <<-READER_DECLS
+					reader_decls = <<-READER_DECLS
 	size_t amt_read = 0;
-				READER_DECLS
-			else
-				reader = <<-READER_CODE
-	error_code = Read#{member[:type]}(fp, &member);
+					READER_DECLS
+
+				else
+					parameters_pass = ""
+					if member[:attributes][:construct_with]
+						member[:attributes][:construct_with].map do |parm|
+							parameters_pass += ", #{generate_expression(parm)}"
+						end
+					end
+
+					reader = <<-READER_CODE
+	error_code = Read#{member[:type]}(fp, &member#{parameters_pass});
 	if (error_code)
 	{
 		return error_code;
 	}
-				READER_CODE
-			end
+					READER_CODE
+				end
 
-			value_checker = ""
+				value_checker = ""
 
-			if member[:attributes].has_key? :array_size
+				if member[:attributes].has_key? :array_size
 
-				value_checker = <<-CHECKER
+					value_checker = <<-CHECKER
 		error_code = Set#{format[:name]}_#{member[:name]}(pointer, member, index);
-				CHECKER
+					CHECKER
 
-				if member[:attributes][:must_contain]
+					if member[:attributes][:must_contain]
 
-					value_checker = ""
+						value_checker = ""
 
-					count = 0
+						count = 0
 
-					member[:attributes][:must_contain][:params].each do |value|
-						must_contain_expression = generate_expression(value)
+						member[:attributes][:must_contain][:params].each do |value|
+							must_contain_expression = generate_expression(value)
 
-						value_checker += <<-CHECKER
+							value_checker += <<-CHECKER
 		if (index == #{count} && member != #{must_contain_expression})
 		{
 			return SERIALIST_MEMBER_VALUE_WRONG;
 		}
-						CHECKER
-						count += 1
+							CHECKER
+							count += 1
+						end
 					end
-				end
 
 
-				<<-MEMBERREAD
+					<<-MEMBERREAD
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
 	#{c_type(member[:type])} member;
@@ -237,23 +257,23 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	}
 	return SERIALIST_NO_ERROR;
 }
-				MEMBERREAD
-			else
-				value_checker = <<-CHECKER
-	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
-				CHECKER
-
-				if member[:attributes][:must_contain]
-					must_contain_expression = generate_expression(member[:attributes][:must_contain])
+					MEMBERREAD
+				else
 					value_checker = <<-CHECKER
+	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
+					CHECKER
+
+					if member[:attributes][:must_contain]
+						must_contain_expression = generate_expression(member[:attributes][:must_contain])
+						value_checker = <<-CHECKER
 	if (member != #{must_contain_expression})
 	{
 		return SERIALIST_MEMBER_VALUE_WRONG;
 	}
-					CHECKER
-				end
+						CHECKER
+					end
 
-				<<-MEMBERREAD
+					<<-MEMBERREAD
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
@@ -278,18 +298,28 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	}
 	return SERIALIST_NO_ERROR;
 }
-				MEMBERREAD
+					MEMBERREAD
+				end
 			end
+
 
 		end.join ""
 	end
 
 	def generate_member_read_calls(format,members)
 		members.map do |member|
-			<<-MEMBERREAD
+
+			if member[:attributes].has_key? :is_parameter
+				<<-MEMBERREAD
+	/* #{member[:name]} is a parameter */
+				MEMBERREAD
+			else
+				<<-MEMBERREAD
 	error_code = Read#{format[:name]}_#{member[:name]}(fp, pointer);
 	if (error_code) { goto error; }
-			MEMBERREAD
+				MEMBERREAD
+			end
+
 		end.join ""
 	end
 
@@ -302,7 +332,8 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 		end.join ""
 	end
 
-	def generate_member_writers(format,members)
+	def generate_member_writers(format, members)
+
 		members.map do |member|
 			if member[:attributes].has_key? :array_size
 				<<-MEMBERWRITE
@@ -328,6 +359,7 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	for (index = 0; index < count; index++)
 	{
 		Get#{format[:name]}_#{member[:name]}(pointer, index, &item);
+
 		if (error_code)
 		{
 			return error_code;
@@ -377,8 +409,15 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	end
 
 
-	def generate_member_functions(format,members)
+	def generate_member_functions(format, members)
+
 		members.map do |member|
+			subset_checker = "1"
+
+			if is_subset?(member[:type])
+				subset_checker = "IsValueElementOf#{member[:type]}(value)"
+			end
+
 			if member[:attributes].has_key? :array_size
 
 				setter = <<-MEMBERSETTER
@@ -427,7 +466,13 @@ SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 		return SERIALIST_INDEX_OUT_OF_BOUNDS;
 	}
 
+	if (#{subset_checker} == 0)
+	{
+		return SERIALIST_INVALID_VALUE_FOR_TYPE;
+	}
+	
 	pointer->#{member[:name]}[index] = value;
+
 	return SERIALIST_NO_ERROR;
 }
 				MEMBERSETTER
@@ -437,7 +482,7 @@ SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 				RETURNER
 
 				value_returner = <<-RETURNER
-	*out_item = pointer->#{member[:name]}[index];"
+	*out_item = pointer->#{member[:name]}[index];
 				RETURNER
 
 				size_of_expression = "pointer->SIZEOF_#{member[:name]}"
@@ -523,11 +568,17 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, s
 			setter = <<-MEMBERSETTER
 SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value)
 {
-	pointer->#{member[:name]} = value;
 	if (pointer == NULL)
 	{
 		return SERIALIST_NULL_POINTER;
 	}
+	if (!#{subset_checker})
+	{
+		return SERIALIST_INVALID_VALUE_FOR_TYPE;
+	}
+
+	pointer->#{member[:name]} = value;
+	
 	return SERIALIST_NO_ERROR;
 }
 			MEMBERSETTER
@@ -562,6 +613,7 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 		end.join ""
 	end
 
+
 	def generate_functions
 		@ast[:formats].map do |format|
 
@@ -569,17 +621,40 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 
 			format[:members].each do |member|
 				if member[:attributes][:construct_with]
-					initializers += <<-MEMBERINITIALIZER
-	Set#{format[:name]}_#{member[:name]}(new_object, #{generate_expression(member[:attributes][:construct_with])});
-					MEMBERINITIALIZER
+					if simple_type?(member[:type])
+						initializers += <<-MEMBERINITIALIZER
+	Set#{format[:name]}_#{member[:name]}(pointer, #{generate_expression(member[:attributes][:construct_with].first)});
+						MEMBERINITIALIZER
+					end
 				end
 			end
 
+			parameters_decl = format[:members].select do |member|
+				member[:attributes].has_key? :is_parameter
+			end.map do |member|
+				", #{c_type(member[:type])} in_#{member[:name]}"
+			end.join ""
+
+			parameters_pass = format[:members].select do |member|
+				member[:attributes].has_key? :is_parameter
+			end.map do |member|
+				", in_#{member[:name]}"
+			end.join ""
+
+			parameters_assign = format[:members].select do |member|
+				member[:attributes].has_key? :is_parameter
+			end.map do |member|
+				<<-ASSIGNMENT
+	pointer->#{member[:name]} = in_#{member[:name]};
+				ASSIGNMENT
+			end.join ""
+
+
 			<<-ENDSTRUCT
-SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
+SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer#{parameters_decl})
 {
-	#{format[:name]}* new_object = (#{format[:name]}*)calloc(1, sizeof(#{format[:name]}));
-	if (new_object == NULL)
+	#{format[:name]}* pointer = (#{format[:name]}*)calloc(1, sizeof(#{format[:name]}));
+	if (pointer == NULL)
 	{
 		return SERIALIST_OUT_OF_MEMORY;
 	}
@@ -588,10 +663,11 @@ SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
 		return SERIALIST_NULL_POINTER;
 	}
 
-	new_object->TYPE_SIGNATURE = #{format[:name].upcase}_TYPE;
+	pointer->TYPE_SIGNATURE = #{format[:name].upcase}_TYPE;
 #{initializers}
+#{parameters_assign}
 
-	*out_pointer = new_object;
+	*out_pointer = pointer;
 	return SERIALIST_NO_ERROR;
 }
 
@@ -613,7 +689,7 @@ SerialistError Delete#{format[:name]} (#{format[:name]}* pointer)
 
 #{generate_member_readers(format, format[:members])}
 #{generate_member_writers(format, format[:members])}
-SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer)
+SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer#{parameters_decl})
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
 	#{format[:name]}* pointer;
@@ -628,7 +704,7 @@ SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer)
 		return SERIALIST_NULL_POINTER;
 	}
 
-	error_code = Create#{format[:name]}(&pointer);
+	error_code = Create#{format[:name]}(&pointer#{parameters_pass});
 	if (error_code) { goto error; }
 #{generate_member_read_calls(format, format[:members])}
 	*out_pointer = pointer;
@@ -698,6 +774,29 @@ struct #{format[:name]}
 		end.join ""
 	end
 
+	def generate_subset_checkers
+		@ast[:subsets].map do |name, subset|
+
+			switch_ladder = subset[:elements].map do |elem|
+				<<-CASE
+		case #{generate_expression(elem)}:
+			return 1;
+				CASE
+			end.join ""
+
+			<<-CHECKING_FUNCTION
+static int IsValueElementOf#{name}(#{c_type(subset[:origin_type])} value)
+{
+	switch(value)
+	{
+#{switch_ladder}
+	}
+	return 0;
+}
+			CHECKING_FUNCTION
+		end.join ""
+	end
+
 	def generate
 
 		error_list = ""
@@ -715,6 +814,8 @@ struct #{format[:name]}
 
 		<<-CHEADEREND
 #include "#{@name.downcase}.h"
+
+#{generate_subset_checkers}
 
 static int IsPointerOfType(void* pointer, #{@name.capitalize}Types type)
 {

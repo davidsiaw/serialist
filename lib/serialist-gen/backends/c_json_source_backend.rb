@@ -26,11 +26,15 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 	picojson::array arr;
 
 	size_t count;
-	Count#{format[:name]}_#{member[:name]}(pointer, &count);
+	SerialistError err = Count#{format[:name]}_#{member[:name]}(pointer, &count);
+	if (err)
+	{
+
+	}
 
 	for(size_t i=0; i<count; i++)
 	{
-		SerialistError err = Get#{format[:name]}_#{member[:name]}(pointer, i, &item);
+		err = Get#{format[:name]}_#{member[:name]}(pointer, i, &item);
 		arr.push_back(picojson::value((double)item));
 	}
 
@@ -121,9 +125,10 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 
 		formats = order.map {|format_name| format_hash[format_name]}.map do |format|
 
-			members = format[:members].map do |member|
+			members = (0...format[:members].length).map do |index|
+				member = format[:members][index]
 				<<-ENDMEMBERPROTO
-	obj[L"#{member[:name]}"] = JSONRead#{format[:name]}_#{member[:name]}(pointer);
+	obj[L"#{index.to_s.rjust(3, "0")}_#{member[:name]}"] = JSONRead#{format[:name]}_#{member[:name]}(pointer);
 				ENDMEMBERPROTO
 		end.join ""
 
