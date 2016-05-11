@@ -143,7 +143,7 @@ module SerialistGen
 		def attribute_properties
 			{
 				"ArraySize" => {name: :array_size, limit: 1, params: 1},
-				"ConstructWith" => {name: :construct_with, limit: 1, params: 1},
+				"ConstructWith" => {name: :construct_with, limit: 0, params: 1},
 				"Mustcontain" => {name: :must_contain, limit: 1, params: 1, checker: lambda do |member, attribute_data| 
 
 					params = attribute_data[:attributeparams]
@@ -176,6 +176,7 @@ module SerialistGen
 
 				end
 				},
+				"Parameter" => {name: :is_parameter, limit: 1, params: 0},
 				"BigEndian" => {name: :big_endian, limit: 1, params: 0},
 				"LittleEndian" => {name: :little_endian, limit: 1, params: 0}
 			}
@@ -228,7 +229,6 @@ module SerialistGen
 						end
 
 						parameter_list
-
 					end
 				end
 
@@ -238,7 +238,7 @@ module SerialistGen
 
 					if known_attr[:limit] 
 
-						if get_attributes_named(member, att).length > known_attr[:limit]
+						if get_attributes_named(member, att).length > known_attr[:limit] and known_attr[:limit] != 0
 							STDERR.puts "line: #{member[:_line]} col: #{member[:_col]}"
 							STDERR.puts "There are more than #{known_attr[:limit]} #{att} attributes. Only #{known_attr[:limit]} will be used."
 							exit(1)
@@ -249,6 +249,7 @@ module SerialistGen
 						else
 							converted_attrs = converted_attrs[0..known_attr[:limit]]
 						end
+
 					end
 
 					converted_name = known_attr[:name]

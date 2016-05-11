@@ -73,19 +73,26 @@ FileUtils.mkdir_p File.join(intermediate_dir)
 
 File.write(File.join(intermediate_dir, "main.cpp"), source)
 
+source_file = File.join(intermediate_dir, "#{name}.c")
+header_file = File.join(intermediate_dir, "#{name}.h")
+exec_file = File.join(intermediate_dir, "parse")
+
+FileUtils.rm source_file if File.exist? source_file
+FileUtils.rm header_file if File.exist? header_file
+FileUtils.rm exec_file if File.exist? exec_file
+
 c_source = `serialist-gen #{format_file} -t CSource`
-File.write(File.join(intermediate_dir, "#{name}.c"), c_source)
+File.write(source_file, c_source)
 
 h_source = `serialist-gen #{format_file} -t CHeader`
-File.write(File.join(intermediate_dir, "#{name}.h"), h_source)
+File.write(header_file, h_source)
 
 FileUtils.cp(File.join(Gem.datadir("serialist-gen"), "picojson.hpp"), File.join(intermediate_dir, "picojson.hpp"))
 
 `cd #{intermediate_dir} && gcc #{File.join(intermediate_dir, name)}.c -c -o #{File.join(intermediate_dir, name)}.o`
-`cd #{intermediate_dir} && g++ #{File.join(intermediate_dir, "main.cpp")} #{File.join(intermediate_dir, name)}.o -o #{File.join(intermediate_dir, "parse")}`
+`cd #{intermediate_dir} && g++ #{File.join(intermediate_dir, "main.cpp")} #{File.join(intermediate_dir, name)}.o -o #{exec_file}`
 
-
-output = `#{File.join(intermediate_dir, "parse")}`
+output = `#{exec_file}`
 begin
 	x = JSON.parse(output)
 	puts x.to_yaml

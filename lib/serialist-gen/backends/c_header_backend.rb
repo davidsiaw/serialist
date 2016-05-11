@@ -45,10 +45,17 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 
 	def generate_function_prototypes
 		@ast[:formats].map do |format|
+
+			parameters_decl = format[:members].select do |member|
+				member[:attributes].has_key? :is_parameter
+			end.map do |member|
+				", #{c_type(member[:type])} #{member[:name]}"
+			end.join ""
+
 			<<-ENDSTRUCT
-SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer);
+SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer#{parameters_decl});
 SerialistError Delete#{format[:name]} (#{format[:name]}* pointer);
-SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer);
+SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer#{parameters_decl});
 SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp);
 #{generate_member_function_prototypes(format,format[:members])}
 			ENDSTRUCT

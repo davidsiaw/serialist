@@ -21,6 +21,8 @@ class LoweredBackend
 			"MustContain"
 		when :construct_with
 			"ConstructWith"
+		when :is_parameter
+			"Parameter"
 		else
 			name
 		end

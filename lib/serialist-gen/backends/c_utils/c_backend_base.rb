@@ -17,6 +17,10 @@ class CBackendBase
 		SerialistGen::Utils::simple_type?(typename, @ast[:subsets])
 	end
 
+	def is_subset?(typename)
+		SerialistGen::Utils::is_subset?(typename, @ast[:subsets])
+	end
+
 	def c_type(typename)
 		SerialistGen::Backends::CUtils::c_type(typename, @ast[:subsets])
 	end

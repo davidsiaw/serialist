@@ -8,7 +8,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    activesupport (4.2.5.1)
+    activesupport (4.2.6)
       i18n (~> 0.7)
       json (~> 1.7, >= 1.7.7)
       minitest (~> 5.1)
@@ -35,7 +35,7 @@ GEM
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.4.0)
     rspec-support (3.4.1)
-    ruco-cpp (0.2.7)
+    ruco-cpp (0.2.8)
       activesupport (~> 4.2)
     sinatra (1.4.7)
       rack (~> 1.5)
@@ -54,7 +54,7 @@ DEPENDENCIES
   bundler (~> 1.10)
   rake (~> 10.0)
   rspec
-  ruco-cpp
+  ruco-cpp (~> 0.2.8)
   serialist-gen!
 
 BUNDLED WITH
