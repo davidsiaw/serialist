@@ -5,6 +5,12 @@ PATH
       sinatra (~> 1.4)
       trollop
 
+PATH
+  remote: /Users/David/programs/ruco
+  specs:
+    ruco-cpp (0.2.7)
+      activesupport (~> 4.2)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -54,7 +60,11 @@ DEPENDENCIES
   bundler (~> 1.10)
   rake (~> 10.0)
   rspec
+<<<<<<< HEAD
+  ruco-cpp!
+=======
   ruco-cpp (~> 0.2.8)
+>>>>>>> 337a2eca2035c58fb590f54f0443fe32105f434c
   serialist-gen!
 
 BUNDLED WITH
