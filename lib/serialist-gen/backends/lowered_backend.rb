@@ -19,6 +19,8 @@ class LoweredBackend
 			"ArraySize"
 		when :must_contain
 			"MustContain"
+		when :construct_with
+			"ConstructWith"
 		else
 			name
 		end
@@ -96,7 +98,7 @@ MEMBEREND
 	end
 
 	def gen_subsets
-		@ast[:subsets].map do |subset|
+		@ast[:subsets].map do |name, subset|
 			<<-SUBSETEND
 subset #{subset[:name]} : #{subset[:origin_type]} = #{subset[:elements].map {|x| gen_expression(x)}.join "," }
 

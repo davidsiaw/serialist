@@ -1,19 +1,15 @@
 
+require "serialist-gen/backends/c_utils/c_backend_base"
+
 module SerialistGen
 module Backends
 
-require "serialist-gen/backends/c_utils/c_utils"
-
-class CSourceBackend
+class CSourceBackend < CUtils::CBackendBase
 
 	def self.desc
 		"Generates the C sources for the format"
 	end
 
-	def initialize(name, ast)
-		@name = name
-		@ast = ast
-	end
 
 	def convert_intrinsic_function(expr)
 		parmArray = expr[:params].map{|param| generate_expression(param)}
@@ -177,7 +173,34 @@ class CSourceBackend
 				READER_CODE
 			end
 
+			value_checker = ""
+
 			if member[:attributes].has_key? :array_size
+
+				value_checker = <<-CHECKER
+		error_code = Set#{format[:name]}_#{member[:name]}(pointer, member, index);
+				CHECKER
+
+				if member[:attributes][:must_contain]
+
+					value_checker = ""
+
+					count = 0
+
+					member[:attributes][:must_contain][:params].each do |value|
+						must_contain_expression = generate_expression(value)
+
+						value_checker += <<-CHECKER
+		if (index == #{count} && member != #{must_contain_expression})
+		{
+			return SERIALIST_MEMBER_VALUE_WRONG;
+		}
+						CHECKER
+						count += 1
+					end
+				end
+
+
 				<<-MEMBERREAD
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
@@ -206,7 +229,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	for (index = 0; index < count; index++)
 	{
 #{reader}
-		error_code = Set#{format[:name]}_#{member[:name]}(pointer, member, index);
+#{value_checker}
 		if (error_code)
 		{
 			return error_code;
@@ -216,6 +239,20 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 }
 				MEMBERREAD
 			else
+				value_checker = <<-CHECKER
+	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
+				CHECKER
+
+				if member[:attributes][:must_contain]
+					must_contain_expression = generate_expression(member[:attributes][:must_contain])
+					value_checker = <<-CHECKER
+	if (member != #{must_contain_expression})
+	{
+		return SERIALIST_MEMBER_VALUE_WRONG;
+	}
+					CHECKER
+				end
+
 				<<-MEMBERREAD
 SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
 {
@@ -234,7 +271,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 #{reader_decls}
 #{endian_decls}
 #{reader}
-	error_code = Set#{format[:name]}_#{member[:name]}(pointer, member);
+#{value_checker}
 	if (error_code)
 	{
 		return error_code;
@@ -305,6 +342,7 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 }
 				MEMBERWRITE
 			else
+
 				<<-MEMBERWRITE
 SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
 {
@@ -342,7 +380,9 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	def generate_member_functions(format,members)
 		members.map do |member|
 			if member[:attributes].has_key? :array_size
-			<<-ENDMEMBERPROTO
+
+				setter = <<-MEMBERSETTER
+
 SerialistError Check#{format[:name]}_#{member[:name]}ArraySize(#{format[:name]}* pointer)
 {
 	/* Method for lazily updating the array size, so that if it is dependant on some other
@@ -371,21 +411,6 @@ SerialistError Check#{format[:name]}_#{member[:name]}ArraySize(#{format[:name]}*
 	return SERIALIST_NO_ERROR;
 }
 
-SerialistError Count#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, size_t* out_count)
-{
-	if (pointer == NULL)
-	{
-		return SERIALIST_NULL_POINTER;
-	}
-	if (out_count == NULL)
-	{
-		return SERIALIST_NULL_POINTER;
-	}
-	*out_count = #{generate_expression(member[:attributes][:array_size])};
-
-	return SERIALIST_NO_ERROR;
-}
-
 SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value, size_t index)
 {
 	SerialistError error_code = Check#{format[:name]}_#{member[:name]}ArraySize(pointer);
@@ -405,10 +430,69 @@ SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 	pointer->#{member[:name]}[index] = value;
 	return SERIALIST_NO_ERROR;
 }
+				MEMBERSETTER
+
+				count_returner = <<-RETURNER
+	*out_count = #{generate_expression(member[:attributes][:array_size])};
+				RETURNER
+
+				value_returner = <<-RETURNER
+	*out_item = pointer->#{member[:name]}[index];"
+				RETURNER
+
+				size_of_expression = "pointer->SIZEOF_#{member[:name]}"
+				if member[:attributes][:must_contain]
+					setter = ""
+					size_of_expression = member[:attributes][:must_contain][:params].length
+
+					count = 0
+
+					case_expressions = ""
+					member[:attributes][:must_contain][:params].each do |value|
+						value_at_expression = generate_expression(value)
+
+						case_expressions += <<-RETURNER
+		case #{count}:
+			*out_item = #{value_at_expression};
+			break;
+						RETURNER
+						count += 1
+					end
+
+					count_returner = <<-RETURNER
+	*out_count = #{member[:attributes][:must_contain][:params].length};
+					RETURNER
+
+					value_returner = <<-RETURNER
+	switch(index)
+	{
+#{case_expressions}
+		default:
+			return SERIALIST_INDEX_OUT_OF_BOUNDS;
+	}
+					RETURNER
+
+				end
+
+				<<-ENDMEMBERPROTO
+
+SerialistError Count#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, size_t* out_count)
+{
+	if (pointer == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
+	if (out_count == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
+#{count_returner}
+	return SERIALIST_NO_ERROR;
+}
 
 SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, size_t index, #{c_type(member[:type])}* out_item)
 {
-	SerialistError error_code = Check#{format[:name]}_#{member[:name]}ArraySize(pointer);
+	SerialistError error_code = SERIALIST_NO_ERROR;
 	if (error_code)
 	{
 		return error_code;
@@ -421,16 +505,22 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, s
 	{
 		return SERIALIST_NULL_POINTER;
 	}
-	if (index >= pointer->SIZEOF_#{member[:name]})
+	if (index >= #{size_of_expression})
 	{
 		return SERIALIST_INDEX_OUT_OF_BOUNDS;
 	}
-	*out_item = pointer->#{member[:name]}[index];
+#{value_returner}
 	return SERIALIST_NO_ERROR;
 }
-			ENDMEMBERPROTO
+#{setter}
+				ENDMEMBERPROTO
 			else
-			<<-ENDMEMBERPROTO
+
+			get_statement = <<-GETSTATEMENT
+	*out_item = pointer->#{member[:name]};
+			GETSTATEMENT
+
+			setter = <<-MEMBERSETTER
 SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value)
 {
 	pointer->#{member[:name]} = value;
@@ -440,7 +530,16 @@ SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 	}
 	return SERIALIST_NO_ERROR;
 }
+			MEMBERSETTER
 
+			if member[:attributes][:must_contain]
+				setter = ""
+				get_statement = <<-GETSTATEMENT
+	*out_item = #{generate_expression(member[:attributes][:must_contain])};
+				GETSTATEMENT
+			end
+
+			<<-ENDMEMBERPROTO
 SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])}* out_item)
 {
 	if (pointer == NULL)
@@ -451,16 +550,31 @@ SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #
 	{
 		return SERIALIST_NULL_POINTER;
 	}
-	*out_item = pointer->#{member[:name]};
+#{get_statement}
 	return SERIALIST_NO_ERROR;
 }
+
+#{setter}
 			ENDMEMBERPROTO
+
+
 			end
 		end.join ""
 	end
 
 	def generate_functions
 		@ast[:formats].map do |format|
+
+			initializers = ""
+
+			format[:members].each do |member|
+				if member[:attributes][:construct_with]
+					initializers += <<-MEMBERINITIALIZER
+	Set#{format[:name]}_#{member[:name]}(new_object, #{generate_expression(member[:attributes][:construct_with])});
+					MEMBERINITIALIZER
+				end
+			end
+
 			<<-ENDSTRUCT
 SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
 {
@@ -473,7 +587,10 @@ SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer)
 	{
 		return SERIALIST_NULL_POINTER;
 	}
-	new_object->TYPE_signature = #{format[:name].upcase}_TYPE;
+
+	new_object->TYPE_SIGNATURE = #{format[:name].upcase}_TYPE;
+#{initializers}
+
 	*out_pointer = new_object;
 	return SERIALIST_NO_ERROR;
 }
@@ -550,16 +667,21 @@ error:
 	def generate_structure_members(format)
 		format[:members].map do |member|
 
-			if member[:attributes].has_key? :array_size
-				<<-ENDMEMBER
+			if member[:attributes][:must_contain]
+				""
+			else
+				if member[:attributes].has_key? :array_size
+					<<-ENDMEMBER
 	#{c_type(member[:type])}* #{member[:name]};
 	size_t SIZEOF_#{member[:name]};
-				ENDMEMBER
-			else
-				<<-ENDMEMBER
+					ENDMEMBER
+				else
+					<<-ENDMEMBER
 	#{c_type(member[:type])} #{member[:name]};
 				ENDMEMBER
+				end
 			end
+
 
 		end.join ""
 	end
@@ -569,7 +691,7 @@ error:
 			<<-ENDSTRUCT
 struct #{format[:name]}
 {
-	#{@name.capitalize}Types TYPE_signature;
+	#{@name.capitalize}Types TYPE_SIGNATURE;
 #{generate_structure_members(format)}
 };
 			ENDSTRUCT

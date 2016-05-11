@@ -1,35 +1,44 @@
 
+require "serialist-gen/backends/c_utils/c_backend_base"
+
 module SerialistGen
 module Backends
 
-require "serialist-gen/backends/c_utils/c_utils"
-
-class CHeaderBackend
+class CHeaderBackend < CUtils::CBackendBase
 
 	def self.desc
 		"Generates a C header to the sources for the format"
 	end
 
-	def initialize(name, ast)
-		@name = name
-		@ast = ast
-	end
-
 	def generate_member_function_prototypes(format,members)
 		members.map do |member|
 			if member[:attributes].has_key? :array_size
-			<<-ENDMEMBERPROTO
+
+				set_member = "SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value, size_t index);"
+
+				if member[:attributes][:must_contain]
+					set_member = ""
+				end
+
+				<<-ENDMEMBERPROTO
 /* #{format[:name]}::#{member[:name]} */
 SerialistError Count#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, size_t* out_count);
-SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value, size_t index);
+#{set_member}
 SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, size_t index, #{c_type(member[:type])}* out_item);
-			ENDMEMBERPROTO
+				ENDMEMBERPROTO
+				
 			else
-			<<-ENDMEMBERPROTO
+				set_member = "SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value);"
+
+				if member[:attributes][:must_contain]
+					set_member = ""
+				end
+
+				<<-ENDMEMBERPROTO
 /* #{format[:name]}::#{member[:name]} */
-SerialistError Set#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])} value);
+#{set_member}
 SerialistError Get#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, #{c_type(member[:type])}* out_item);
-			ENDMEMBERPROTO
+				ENDMEMBERPROTO
 			end
 		end.join ""
 	end

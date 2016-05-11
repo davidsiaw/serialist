@@ -1,19 +1,15 @@
+
+require "serialist-gen/backends/c_utils/c_backend_base"
+
 module SerialistGen
 module Backends
 
 require 'tsort'
 
-class CJSONSourceBackend
-
-	require "serialist-gen/backends/c_utils/c_utils"
+class CJSONSourceBackend < CUtils::CBackendBase
 
 	def self.desc
 		"Generates C++ code to output file data in JSON format"
-	end
-
-	def initialize(name, ast)
-		@name = name
-		@ast = ast
 	end
 
 	def generate_member_readers(format)
@@ -114,7 +110,7 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 			used_types = []
 
 			format[:members].each do |member|
-				used_types << member[:type] if !simple_type?(member[:type])
+				used_types << member[:type] if !simple_type?(member[:type]) and @ast[:subsets][member[:type]] == nil
 			end
 
 			dependency_hash[format[:name]] = used_types

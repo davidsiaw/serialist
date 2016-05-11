@@ -1,4 +1,17 @@
-def c_type(typename)
+require "serialist-gen/utils"
+
+module SerialistGen
+module Backends
+module CUtils extend self
+
+include SerialistGen::Utils
+
+def c_type(typename, subsets={})
+
+	if subsets and subsets[typename]
+		typename = subsets[typename][:origin_type]
+	end
+
 	case typename
 	when "Int8"
 		"int8_t"
@@ -25,34 +38,12 @@ def c_type(typename)
 	end
 end
 
-def simple_type?(typename)
-	case typename
-	when "Int8"
-		true
-	when "Int16"
-		true
-	when "Int32"
-		true
-	when "Int64"
-		true
-	when "Uint8"
-		true
-	when "Uint16"
-		true
-	when "Uint32"
-		true
-	when "Uint64"
-		true
-	when "Float32"
-		true
-	when "Float64"
-		true
-	else
-		false
-	end
-end
+def type_length(typename, subsets={})
 
-def type_length(typename)
+	if subsets and subsets[typename]
+		typename = subsets[typename][:origin_type]
+	end
+
 	case typename
 	when "Int8"
 		1
@@ -88,6 +79,11 @@ def error_types
 		"SERIALIST_NULL_POINTER",
 		"SERIALIST_WRITE_FAILED",
 		"SERIALIST_POINTER_IS_WRONG_TYPE",
-		"SERIALIST_NULL_FILE_POINTER"
+		"SERIALIST_NULL_FILE_POINTER",
+		"SERIALIST_MEMBER_VALUE_WRONG"
 	]
+end
+
+end
+end
 end

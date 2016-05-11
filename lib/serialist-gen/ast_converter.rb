@@ -1,3 +1,4 @@
+require "serialist-gen/utils"
 
 class String
 	def is_i?
@@ -7,10 +8,11 @@ end
 
 module SerialistGen
 
-
 	# lowers the ast to a subset of the language
 	# performs checks on semantics
 	class AstConverter
+
+		include SerialistGen::Utils
 
 
 		def collapse_expression(expression)
@@ -141,7 +143,39 @@ module SerialistGen
 		def attribute_properties
 			{
 				"ArraySize" => {name: :array_size, limit: 1, params: 1},
-				"Mustcontain" => {name: :must_contain, limit: 1, params: 1},
+				"ConstructWith" => {name: :construct_with, limit: 1, params: 1},
+				"Mustcontain" => {name: :must_contain, limit: 1, params: 1, checker: lambda do |member, attribute_data| 
+
+					params = attribute_data[:attributeparams]
+					if params.length != 1
+						STDERR.puts "line: #{attribute_data[:_line]} col: #{attribute_data[:_col]}"
+						STDERR.puts "Attribute MustContain only accepts 1 parameter"
+						exit(1)
+					end
+
+					check_kind = "unit"
+					member_kind = "unit"
+
+					check_kind = "array" if params[0][:expressions][0][:unary] and params[0][:expressions][0][:unary][:_type] == "ArrayLiteral"
+					member_kind = "array" if member[:attributes].select {|att| att[:typeidentifier][:_token] == "ArraySize"}.length == 1
+
+					#puts "PARAMS"
+					#puts params[0].to_yaml
+					#puts "ATTRS"
+					#puts member[:attributes].to_yaml
+
+					#puts check_kind
+					#p member_kind
+
+					if check_kind != member_kind
+						STDERR.puts "line: #{attribute_data[:_line]} col: #{attribute_data[:_col]}"
+						STDERR.puts "Attribute MustContain can only receive an Array if the member is an Array"
+						exit(1)
+					end
+
+
+				end
+				},
 				"BigEndian" => {name: :big_endian, limit: 1, params: 0},
 				"LittleEndian" => {name: :little_endian, limit: 1, params: 0}
 			}
@@ -174,6 +208,10 @@ module SerialistGen
 										end
 
 						if known_attr 
+
+							if known_attr[:checker]
+								known_attr[:checker].call(member, attribute_data)
+							end
 
 							passed_count = attribute_data[:attributeparams][0][:expressions].length
 
@@ -253,19 +291,31 @@ module SerialistGen
 				"Float64" => []
 			}
 
+			subset_hash = {}
+
+			ast[:elements].
+				select {|e| e[:_content][:_type] == "Subset"}.
+				map { |element| element[:_content] }.
+				each do |subset|
+
+					subset_item = {
+						name: subset[:typeidentifiers][0][:_token],
+						origin_type: subset[:typeidentifiers][1][:_token],
+						elements: subset[:subsetrange][:simpleliterals].map {|x| convert_expression(x)}
+					}
+
+					if !simple_type?(subset_item[:origin_type])
+						STDERR.puts "line: #{subset[:_line]} col: #{subset[:_col]}"
+						STDERR.puts "Subset can only be derived from a basic type"
+						exit(1)
+					end
+
+					subset_hash[subset[:typeidentifiers][0][:_token]] = subset_item
+
+				end
+
 			{
-				subsets: ast[:elements].
-					select {|e| e[:_content][:_type] == "Subset"}.
-					map { |element| element[:_content] }.
-					map do |subset|
-
-						{
-							name: subset[:typeidentifiers][0][:_token],
-							origin_type: subset[:typeidentifiers][1][:_token],
-							elements: subset[:subsetrange][:simpleliterals].map {|x| convert_expression(x)}
-						}
-
-					end,
+				subsets: subset_hash,
 
 				formats: ast[:elements].
 					select {|e| e[:_content][:_type] == "Format"}.
