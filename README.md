@@ -70,7 +70,7 @@ STEP 3, Use in your C/C++ application:
       err = CreateNumberList(&new_list);
 
       FILE* fp_write = fopen("newnumbers.numbers", "wb");
-      err = WriteSimple(fp_write, new_list);
+      err = WriteNumberList(fp_write, new_list);
       fclose(fp_write);
 
       return 0;
