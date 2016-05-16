@@ -44,19 +44,48 @@ source = <<-SOURCE
 
 #{source}
 
+picojson::object write_error_info(SerialistErrorInfo* info, size_t depth)
+{
+	const wchar_t* member;
+	size_t index, count, offset;
+
+	picojson::object curr;
+	if (GetSerialistErrorInfo(info, depth, NULL, &member, &index, &count, &offset))
+	{
+		return curr;
+	}
+
+	picojson::object next = write_error_info(info, depth + 1);
+
+	curr[L"member"] = picojson::value(member);
+	curr[L"index"] = picojson::value((double)index);
+	curr[L"count"] = picojson::value((double)count);
+	curr[L"offset"] = picojson::value((double)offset);
+	curr[L"parent"] = picojson::value(next);
+
+	return curr;
+}
+
 int main(int argc, char** argv)
 {
 	FILE* fp = fopen("#{binary_file}", "rb");
 
-	#{format_name}* pointer;
-	SerialistError err = Read#{format_name}(fp, &pointer);
+	#{format_name}* pointer = NULL;
+	SerialistErrorInfo* info = NULL;
+	CreateSerialistErrorInfo(&info);
+	SerialistError err = ReadWithInfo#{format_name}(fp, info, &pointer);
 
 	if (err)
 	{
 		picojson::object obj;
 		obj[L"read_error"] = picojson::value(SerialistErrorWString(err));
+
+		obj[L"stack"] = picojson::value(write_error_info(info, 0));
+
 		picojson::value errval(obj);
+		
 		std::wcout << errval.serialize() << std::endl;
+
 		return EXIT_FAILURE;
 	}
 
@@ -92,7 +121,7 @@ FileUtils.cp(File.join(Gem.datadir("serialist-gen"), "picojson.hpp"), File.join(
 `cd #{intermediate_dir} && gcc #{File.join(intermediate_dir, name)}.c -c -o #{File.join(intermediate_dir, name)}.o`
 `cd #{intermediate_dir} && g++ #{File.join(intermediate_dir, "main.cpp")} #{File.join(intermediate_dir, name)}.o -o #{exec_file}`
 
-output = `#{exec_file}`
+output = `#{exec_file} 2>&1`
 begin
 	x = JSON.parse(output)
 	puts x.to_yaml

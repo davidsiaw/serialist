@@ -29,7 +29,7 @@ TOKENS
 	pascalcase   = bigletter { bigletter | letter | digit }.
 	camelcase    = letter { bigletter | letter | digit }.
 
-	number       = digit { digit } [ '.' digit { digit } ].
+	number      = digit { digit } [ '.' { digit } ].
 	hexinteger   = '0' 'x' hex { hex }.
 
 	string       = '"' { stringCh | '\\' printable } '"'.

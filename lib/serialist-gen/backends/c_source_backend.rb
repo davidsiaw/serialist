@@ -10,7 +10,6 @@ class CSourceBackend < CUtils::CBackendBase
 		"Generates the C sources for the format"
 	end
 
-
 	def convert_intrinsic_function(expr)
 		parmArray = expr[:params].map{|param| generate_expression(param)}
 		parms = parmArray.join(", ")
@@ -145,6 +144,44 @@ class CSourceBackend < CUtils::CBackendBase
 		{decls: endian_decls, code: endian_code}
 	end
 
+	def generate_member_read_write_push(format, member, indent)
+		key = "#{format[:name]}::#{member[:name]}";
+		<<-PUSH
+#{"	"*indent}if (info)
+#{"	"*indent}{
+#{"	"*indent}	info->stack[info->stack_depth] = #{@ast[:member_ids][key]};
+#{"	"*indent}	info->member_index[info->stack_depth] = 0;
+#{"	"*indent}	info->member_count[info->stack_depth] = 1;
+#{"	"*indent}	info->file_offset[info->stack_depth] = ftell(fp);
+#{"	"*indent}	info->stack_depth++;
+#{"	"*indent}}
+		PUSH
+	end
+
+	def generate_member_read_write_pop(format, member, indent)
+		<<-POP
+#{"	"*indent}if (info)
+#{"	"*indent}{
+#{"	"*indent}	info->stack_depth--;
+#{"	"*indent}	info->stack[info->stack_depth] = 0;
+#{"	"*indent}	info->member_index[info->stack_depth] = 0;
+#{"	"*indent}	info->member_count[info->stack_depth] = 0;
+#{"	"*indent}	info->file_offset[info->stack_depth] = 0;
+#{"	"*indent}}
+		POP
+	end
+
+	def generate_member_read_write_array_update(indent)
+		<<-UPDATE
+#{"	"*indent}if (info)
+#{"	"*indent}{
+#{"	"*indent}	info->member_index[info->stack_depth-1] = index;
+#{"	"*indent}	info->member_count[info->stack_depth-1] = count;
+#{"	"*indent}	info->file_offset[info->stack_depth] = ftell(fp);
+#{"	"*indent}}
+		UPDATE
+	end
+
 	def generate_member_readers(format,members)
 		members.map do |member|
 
@@ -185,7 +222,7 @@ class CSourceBackend < CUtils::CBackendBase
 					end
 
 					reader = <<-READER_CODE
-	error_code = Read#{member[:type]}(fp, &member#{parameters_pass});
+	error_code = ReadWithInfo#{member[:type]}(fp, info, &member#{parameters_pass});
 	if (error_code)
 	{
 		return error_code;
@@ -222,7 +259,7 @@ class CSourceBackend < CUtils::CBackendBase
 
 
 					<<-MEMBERREAD
-SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
+SerialistError ReadWithInfo#{format[:name]}_#{member[:name]} (FILE* fp, SerialistErrorInfo* info, #{format[:name]}* pointer)
 {
 	#{c_type(member[:type])} member;
 #{reader_decls}
@@ -230,6 +267,8 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+#{generate_member_read_write_push(format, member, 1)}
 
 	if (fp == NULL)
 	{
@@ -248,6 +287,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 
 	for (index = 0; index < count; index++)
 	{
+#{generate_member_read_write_array_update(2)}
 #{reader}
 #{value_checker}
 		if (error_code)
@@ -255,8 +295,16 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 			return error_code;
 		}
 	}
+
+#{generate_member_read_write_pop(format, member, 1)}
 	return SERIALIST_NO_ERROR;
 }
+
+SerialistError Read#{format[:name]}_#{member[:name]} (FILE* fp, #{format[:name]}* pointer)
+{
+	return ReadWithInfo#{format[:name]}_#{member[:name]} (fp, NULL, pointer);
+}
+
 					MEMBERREAD
 				else
 					value_checker = <<-CHECKER
@@ -274,9 +322,13 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 					end
 
 					<<-MEMBERREAD
-SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
+SerialistError ReadWithInfo#{format[:name]}_#{member[:name]}(FILE* fp, SerialistErrorInfo* info, #{format[:name]}* pointer)
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
+	#{c_type(member[:type])} member;
+#{reader_decls}
+#{endian_decls}
+#{generate_member_read_write_push(format, member, 1)}
 
 	if (fp == NULL)
 	{
@@ -287,17 +339,21 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 		return SERIALIST_NULL_POINTER;
 	}
 
-	#{c_type(member[:type])} member;
-#{reader_decls}
-#{endian_decls}
 #{reader}
 #{value_checker}
 	if (error_code)
 	{
 		return error_code;
 	}
+#{generate_member_read_write_pop(format, member, 1)}
 	return SERIALIST_NO_ERROR;
 }
+
+SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}* pointer)
+{
+	return ReadWithInfo#{format[:name]}_#{member[:name]}(fp, NULL, pointer);
+}
+
 					MEMBERREAD
 				end
 			end
@@ -315,7 +371,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 				MEMBERREAD
 			else
 				<<-MEMBERREAD
-	error_code = Read#{format[:name]}_#{member[:name]}(fp, pointer);
+	error_code = ReadWithInfo#{format[:name]}_#{member[:name]}(fp, info, pointer);
 	if (error_code) { goto error; }
 				MEMBERREAD
 			end
@@ -326,7 +382,7 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	def generate_member_write_calls(format,members)
 		members.map do |member|
 			<<-MEMBERREAD
-	error_code = Write#{format[:name]}_#{member[:name]}(pointer, fp);
+	error_code = WriteWithInfo#{format[:name]}_#{member[:name]} (pointer, info, fp);
 	if (error_code) { goto error; }
 			MEMBERREAD
 		end.join ""
@@ -335,14 +391,31 @@ SerialistError Read#{format[:name]}_#{member[:name]}(FILE* fp, #{format[:name]}*
 	def generate_member_writers(format, members)
 
 		members.map do |member|
+
+			writer = ""
+			writer_decls = ""
+			endian_decls = ""
+
+			if simple_type? member[:type]
+				writer = <<-WRITER
+		fwrite(&item, sizeof(#{c_type(member[:type])}), 1, fp);
+				WRITER
+			else
+				writer = <<-WRITER
+		WriteWithInfo#{member[:type]} (item, info, fp);
+				WRITER
+			end
+
 			if member[:attributes].has_key? :array_size
 				<<-MEMBERWRITE
-SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
+SerialistError WriteWithInfo#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, SerialistErrorInfo* info, FILE* fp)
 {
 	#{c_type(member[:type])} item;
 	size_t index = 0;
 	size_t count = 0;
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+#{generate_member_read_write_push(format, member, 1)}
 
 	if (fp == NULL)
 	{
@@ -358,28 +431,39 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 
 	for (index = 0; index < count; index++)
 	{
+#{generate_member_read_write_array_update(2)}
+
 		Get#{format[:name]}_#{member[:name]}(pointer, index, &item);
 
 		if (error_code)
 		{
 			return error_code;
 		}
-		fwrite(&item, sizeof(#{c_type(member[:type])}), 1, fp);
+#{writer}
 		if (amt_written != sizeof(#{c_type(member[:type])}))
 		{
 			return SERIALIST_WRITE_FAILED;
 		}
 	}
+
+#{generate_member_read_write_pop(format, member, 1)}
 	return SERIALIST_NO_ERROR;
+}
+
+SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
+{
+	return WriteWithInfo#{format[:name]}_#{member[:name]}(pointer, NULL, fp);
 }
 				MEMBERWRITE
 			else
 
 				<<-MEMBERWRITE
-SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
+SerialistError WriteWithInfo#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, SerialistErrorInfo* info, FILE* fp)
 {
 	#{c_type(member[:type])} item;
 	SerialistError error_code = SERIALIST_NO_ERROR;
+
+#{generate_member_read_write_push(format, member, 1)}
 
 	if (fp == NULL)
 	{
@@ -396,12 +480,18 @@ SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer,
 	{
 		return error_code;
 	}
-	fwrite(&item, sizeof(#{c_type(member[:type])}), 1, fp);
+#{writer}
 	if (amt_written != sizeof(#{c_type(member[:type])}))
 	{
 		return SERIALIST_WRITE_FAILED;
 	}
+#{generate_member_read_write_pop(format, member, 1)}
 	return SERIALIST_NO_ERROR;
+}
+
+SerialistError Write#{format[:name]}_#{member[:name]}(#{format[:name]}* pointer, FILE* fp)
+{
+	return WriteWithInfo#{format[:name]}_#{member[:name]}(pointer, NULL, fp);
 }
 				MEMBERWRITE
 			end
@@ -689,7 +779,8 @@ SerialistError Delete#{format[:name]} (#{format[:name]}* pointer)
 
 #{generate_member_readers(format, format[:members])}
 #{generate_member_writers(format, format[:members])}
-SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer#{parameters_decl})
+
+SerialistError ReadWithInfo#{format[:name]} (FILE* fp, SerialistErrorInfo* info, #{format[:name]}** out_pointer#{parameters_decl})
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
 	#{format[:name]}* pointer;
@@ -715,7 +806,12 @@ error:
 	return error_code;
 }
 
-SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp)
+SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer#{parameters_decl})
+{
+	return ReadWithInfo#{format[:name]} (fp, NULL, out_pointer#{parameters_pass});
+}
+
+SerialistError WriteWithInfo#{format[:name]} (#{format[:name]}* pointer, SerialistErrorInfo* info, FILE* fp)
 {
 	SerialistError error_code = SERIALIST_NO_ERROR;
 
@@ -733,6 +829,11 @@ SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp)
 
 error:
 	return error_code;
+}
+
+SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp)
+{
+	return WriteWithInfo#{format[:name]} (pointer, NULL, fp);
 }
 
 #{generate_member_functions(format, format[:members])}
@@ -812,10 +913,120 @@ static int IsValueElementOf#{name}(#{c_type(subset[:origin_type])} value)
 
 		end
 
+		member_id_list = @ast[:member_ids].map do |global_member_name, id|
+			<<-MEMBER_ID_ENTRY
+	case #{id}:
+		return "#{global_member_name}";
+			MEMBER_ID_ENTRY
+		end.join ""
+
+		member_id_list_w = @ast[:member_ids].map do |global_member_name, id|
+			<<-MEMBER_ID_ENTRY
+	case #{id}:
+		return L"#{global_member_name}";
+			MEMBER_ID_ENTRY
+		end.join ""
+
 		<<-CHEADEREND
 #include "#{@name.downcase}.h"
 
+#{generate_structures}
+
+typedef struct SerialistErrorInfo
+{
+	size_t stack_depth;
+	size_t stack[128];
+	size_t member_index[128];
+	size_t member_count[128];
+	size_t file_offset[128];
+
+} SerialistErrorInfo;
+
+static const char* GetMemberNameFromId(size_t id)
+{
+	switch(id)
+	{
+#{member_id_list}
+	}
+	return "invalid_member";
+}
+
+static const wchar_t* GetMemberNameFromIdW(size_t id)
+{
+	switch(id)
+	{
+#{member_id_list_w}
+	}
+	return L"invalid_member";
+}
+
 #{generate_subset_checkers}
+
+SerialistError CreateSerialistErrorInfo(SerialistErrorInfo** info_ptr)
+{
+	if (info_ptr == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
+	*info_ptr = calloc(1, sizeof(SerialistErrorInfo));
+	if (*info_ptr == NULL)
+	{
+		return SERIALIST_OUT_OF_MEMORY;
+	}
+	return SERIALIST_NO_ERROR;
+}
+
+SerialistError DeleteSerialistErrorInfo(SerialistErrorInfo* info)
+{
+	if (info == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
+	free(info);
+	return SERIALIST_NO_ERROR;
+}
+
+SerialistError GetSerialistErrorInfo(SerialistErrorInfo* info, size_t depth, const char** out_member, const wchar_t** out_member_w, size_t* out_index, size_t* out_count, size_t* out_file_offset)
+{
+	size_t index = info->stack_depth - 1 - depth;
+
+	if (info == NULL)
+	{
+		return SERIALIST_NULL_POINTER;
+	}
+
+	if (depth >= info->stack_depth)
+	{
+		return SERIALIST_END_OF_STACK;
+	}
+
+	if (out_member)
+	{
+		*out_member = GetMemberNameFromId(info->stack[index]);
+	}
+
+	if (out_member_w)
+	{
+		*out_member_w = GetMemberNameFromIdW(info->stack[index]);
+	}
+	
+	if (out_index)
+	{
+		*out_index = info->member_index[index];
+	}
+
+	if (out_count)
+	{
+		*out_count = info->member_count[index];
+	}
+
+	if (out_file_offset)
+	{
+		*out_file_offset = info->file_offset[index];
+	}
+
+	return SERIALIST_NO_ERROR;
+}
 
 static int IsPointerOfType(void* pointer, #{@name.capitalize}Types type)
 {
@@ -850,7 +1061,6 @@ const wchar_t* SerialistErrorWString(SerialistError err)
 	return L"SERIALIST_UNKNOWN_ERROR";
 }
 
-#{generate_structures}
 #{generate_functions}
 
 CHEADEREND

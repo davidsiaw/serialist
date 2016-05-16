@@ -315,7 +315,7 @@ module SerialistGen
 
 				end
 
-			{
+			result = {
 				subsets: subset_hash,
 
 				formats: ast[:elements].
@@ -336,6 +336,18 @@ module SerialistGen
 						f
 					end
 			}
+
+			member_ids = {"invalid_member" => 0}
+
+			result[:formats].each do |format|
+				format[:members].each do |member|
+					member_ids["#{format[:name]}::#{member[:name]}"] = member_ids.length
+				end
+			end
+
+			result[:member_ids] = member_ids
+
+			result
 			
 		end
 

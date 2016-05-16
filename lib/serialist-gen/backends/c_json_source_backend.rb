@@ -29,7 +29,9 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 	SerialistError err = Count#{format[:name]}_#{member[:name]}(pointer, &count);
 	if (err)
 	{
-
+		arr.push_back(picojson::value(L"Failed to get size of array"));
+		arr.push_back(picojson::value(SerialistErrorWString(err)));
+		return picojson::value(arr);
 	}
 
 	for(size_t i=0; i<count; i++)
@@ -50,7 +52,13 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 	picojson::array arr;
 
 	size_t count;
-	Count#{format[:name]}_#{member[:name]}(pointer, &count);
+	SerialistError err = Count#{format[:name]}_#{member[:name]}(pointer, &count);
+	if (err)
+	{
+		arr.push_back(picojson::value(L"Failed to get size of array"));
+		arr.push_back(picojson::value(SerialistErrorWString(err)));
+		return picojson::value(arr);
+	}
 
 	for(size_t i=0; i<count; i++)
 	{
@@ -127,9 +135,11 @@ picojson::value JSONRead#{format[:name]}_#{member[:name]}(#{format[:name]}* poin
 
 			members = (0...format[:members].length).map do |index|
 				member = format[:members][index]
-				<<-ENDMEMBERPROTO
+				if !member[:attributes].has_key? :is_parameter or simple_type?(member[:type])
+					<<-ENDMEMBERPROTO
 	obj[L"#{index.to_s.rjust(3, "0")}_#{member[:name]}"] = JSONRead#{format[:name]}_#{member[:name]}(pointer);
-				ENDMEMBERPROTO
+					ENDMEMBERPROTO
+				end
 		end.join ""
 
 			<<-ENDSTRUCT

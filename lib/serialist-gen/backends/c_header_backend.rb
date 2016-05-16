@@ -57,6 +57,8 @@ SerialistError Create#{format[:name]} (#{format[:name]}** out_pointer#{parameter
 SerialistError Delete#{format[:name]} (#{format[:name]}* pointer);
 SerialistError Read#{format[:name]} (FILE* fp, #{format[:name]}** out_pointer#{parameters_decl});
 SerialistError Write#{format[:name]} (#{format[:name]}* pointer, FILE* fp);
+SerialistError ReadWithInfo#{format[:name]} (FILE* fp, SerialistErrorInfo* info, #{format[:name]}** out_pointer#{parameters_decl});
+SerialistError WriteWithInfo#{format[:name]} (#{format[:name]}* pointer, SerialistErrorInfo* info, FILE* fp);
 #{generate_member_function_prototypes(format,format[:members])}
 			ENDSTRUCT
 		end.join "\n"
@@ -103,23 +105,28 @@ extern "C"
 #include <stdlib.h>
 #include <string.h>
 
-#define SERIALIST_LITTLE_ENDIAN 0
-#define SERIALIST_BIG_ENDIAN 1
-
 typedef enum
 {
 #{error_list}
 } SerialistError;
+
+typedef struct SerialistErrorInfo SerialistErrorInfo;
 
 typedef enum
 {
 #{generate_type_enums}
 } #{@name.capitalize}Types;
 
+#{generate_structure_prototypes}
+
+SerialistError CreateSerialistErrorInfo(SerialistErrorInfo** info_ptr);
+SerialistError DeleteSerialistErrorInfo(SerialistErrorInfo* info_ptr);
+
+SerialistError GetSerialistErrorInfo(SerialistErrorInfo* info_ptr, size_t depth, const char** out_member, const wchar_t** out_member_w, size_t* out_index, size_t* out_count, size_t* out_file_offset);
+
 const char* SerialistErrorString(SerialistError err);
 const wchar_t* SerialistErrorWString(SerialistError err);
 
-#{generate_structure_prototypes}
 #{generate_function_prototypes}
 
 #ifdef __cplusplus
